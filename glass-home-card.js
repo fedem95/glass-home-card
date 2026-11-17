@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.2.0";
+  const VERSION = "0.5.2";
   const HOLD_MS = 600;
 
   const STR = {
@@ -20,6 +20,9 @@
       and: "e", rooms: "stanze", open: "aperte", openOne: "aperta", allClosed: "Tutte chiuse", slit: "a fessura",
       stopped: "Fermo", today: "oggi",
       enter: "Entra", leave: "Esci", enterBox: "Entra box", leaveBox: "Esci box",
+      gMorning: "Buongiorno", gAfternoon: "Buon pomeriggio", gEvening: "Buonasera", gNight: "Buonanotte",
+      alarm: "Antifurto", athome: "a casa", away: "fuori",
+      powerOut: "Manca la corrente", runtime: "autonomia", emptyDisarmed: "Nessuno in casa e antifurto spento", oneLightEmpty: "1 luce accesa a casa vuota", lightsEmpty: "{n} luci accese a casa vuota",
     },
     en: {
       home: "Home", people: "Come & go", scenes: "Scenes", all: "All",
@@ -28,6 +31,9 @@
       and: "and", rooms: "rooms", open: "open", openOne: "open", allClosed: "All closed", slit: "ajar",
       stopped: "Idle", today: "today",
       enter: "Enter", leave: "Leave", enterBox: "Enter by car", leaveBox: "Leave by car",
+      gMorning: "Good morning", gAfternoon: "Good afternoon", gEvening: "Good evening", gNight: "Good night",
+      alarm: "Alarm", athome: "at home", away: "away",
+      powerOut: "Power is out", runtime: "battery", emptyDisarmed: "Nobody home and the alarm is off", oneLightEmpty: "1 light on in an empty home", lightsEmpty: "{n} lights on in an empty home",
     },
   };
 
@@ -41,6 +47,8 @@
     box_tap_action: { action: "none" },
     show_box: true,
     scene_trigger: "hold",
+    show_greeting: true,
+    weather_height: 160,
   };
 
   /* icone disegnate a mano, animate col CSS */
@@ -53,6 +61,8 @@
     leave: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5"/><path d="M10 12h11M17 8l4 4-4 4"/></svg>`,
     garage: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-8h10v8M7 16h10"/></svg>`,
     check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
+    drop: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7l5.7 5.7a8 8 0 1 1-11.4 0z"/></svg>`,
+    therm: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z"/></svg>`,
   };
 
   const CSS = `
@@ -62,12 +72,26 @@
   --gh-r:20px; --gh-gap:14px;
   font-family:var(--ha-font-family-body, -apple-system, system-ui, sans-serif);}
 .wrap[data-scheme="dark"]{--gh-heat:#f3a76a;--gh-cool:#7fb2ff;--gh-sun:#f7d36b;--gh-ok:#8fd18a;--gh-blue:#7fb2ff;--gh-violet:#b49cff;--gh-orange:#f3a76a}
+.wrap[data-compact]{--gh-gap:10px}
+.wrap[data-compact] .tile{height:58px}
+.wrap[data-compact] .sc{height:58px;gap:3px}
+.wrap[data-compact] .ee{padding:7px 8px 7px 10px}
+.wrap[data-compact] .av{width:36px;height:36px}
+.wrap[data-compact] .eeb button{height:36px}
+.wrap[data-compact] .sect{margin:0 2px -4px;font-size:12.5px}
+.wrap[data-compact] .hi h2{font-size:27px}
+.wrap[data-compact] .pill{height:32px}
+.wrap[data-compact] .pill.solo{width:36px}
 .wrap{display:flex;flex-direction:column;gap:var(--gh-gap);color:var(--gh-fg)}
 .sect{font-size:13px;font-weight:600;color:var(--gh-mut);margin:2px 2px -6px;display:flex;justify-content:space-between;align-items:center}
 .sect .all{font-weight:500;cursor:pointer;padding:4px 0 4px 12px;-webkit-tap-highlight-color:transparent}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .tile{display:flex;align-items:center;gap:11px;padding:0 14px;height:66px;border-radius:var(--gh-r);cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;transition:background .25s,color .25s,transform .12s;min-width:0;box-sizing:border-box;position:relative}
 .tile.wide{grid-column:span 2}
+.tile .hum{margin-left:auto;display:flex;align-items:center;gap:4px;height:34px;padding:0 12px 0 9px;border-radius:17px;font-size:13.5px;font-weight:600;color:var(--gh-blue);background:rgba(127,127,140,.14);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;flex:none}
+.tile .hum svg{width:16px;height:16px}
+.tile .hum.press{transform:scale(.94)}
+.tile .t{flex:1}
 .tile.press,.sc.press,.eeb button.press{transform:scale(.97)}
 .ico{width:30px;height:38px;display:grid;place-items:center;flex:none;position:relative;color:var(--gh-mut)}
 .ico svg,.ico ha-icon{width:22px;height:22px;--mdc-icon-size:22px}
@@ -158,6 +182,26 @@
 @keyframes gh-ring{0%{opacity:.9;transform:scale(.6)}100%{opacity:0;transform:scale(2.6)}}
 @keyframes gh-draw{to{stroke-dashoffset:0}}
 @keyframes gh-spark{0%{opacity:1;transform:rotate(var(--a)) translateY(0) scale(1)}100%{opacity:0;transform:rotate(var(--a)) translateY(-34px) scale(.4)}}
+/* saluto */
+.hi{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.hi h2{margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.12;text-wrap:balance}
+.hi p{margin:4px 0 0;color:var(--gh-mut);font-size:14.5px;line-height:1.35}
+/* pillole */
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px 0 9px;border-radius:17px;font-size:13.5px;font-weight:500;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;box-sizing:border-box}
+.pill.solo{padding:0;width:38px;justify-content:center}
+.pill ha-icon{--mdc-icon-size:19px;color:var(--c)}
+.pill.alert{background:#e53935!important;border-color:#e53935!important;color:#fff}
+.pill.alert ha-icon{color:#fff}
+.pill.press{transform:scale(.95)}
+/* meteo */
+.wx{position:relative;border-radius:28px;overflow:hidden;isolation:isolate;transform:translateZ(0)}
+.wx .slot{position:absolute;inset:0}
+.wx .slot>*{display:block;height:100%;--ha-card-border-radius:28px}
+.cal{border-radius:var(--gh-r);overflow:hidden;padding:4px 2px}
+.cal .slot>*{display:block;--ha-card-background:transparent;--card-background-color:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--ha-card-border-color:transparent}
+.wx .tip{position:absolute;right:14px;top:14px;z-index:3;color:#fff;font-size:12.5px;text-shadow:0 1px 6px rgba(0,0,0,.25);pointer-events:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px 0 9px;border-radius:14px;background:rgba(255,255,255,.22);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-weight:600;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3);opacity:1}
+.wx .tip ha-icon{--mdc-icon-size:15px}
 @media (prefers-reduced-motion:reduce){.term *,.sol *,.ok,.ok *,.sc.sent{animation:none!important}.ok .dot{transform:none}.ok .dot svg{stroke-dashoffset:0}.ok .ring,.ok i{display:none}}
 `;
 
@@ -189,6 +233,7 @@
 
     set hass(hass) {
       this._hass = hass;
+      Object.values(this._emb || {}).forEach((e) => { if (e.el) e.el.hass = hass; });
       const sig = this._signature();
       if (sig !== this._sig) { this._sig = sig; this._render(); }
     }
@@ -205,15 +250,34 @@
       const c = this._config, ids = [...(c.climate_entities || [])];
       ["temperature_entity", "humidity_entity", "covers_open_entity", "covers_slit_entity", "solar_power_entity", "solar_energy_entity", "person_1", "person_2"].forEach((k) => c[k] && ids.push(c[k]));
       for (let i = 1; i <= 4; i++) ["script", "name_entity"].forEach((k) => c[`scene_${i}_${k}`] && ids.push(c[`scene_${i}_${k}`]));
+      (c.calendar_card?.entities || []).forEach((e) => ids.push(typeof e === "string" ? e : e.entity));
+      ["tip_1_entity", "tip_2_entity", "greeting_entity", "alarm_entity", "scenes_active_since", "power_fail_entity", "ups_status_entity", "ups_runtime_entity", "lights_entity"].forEach((k) => c[k] && ids.push(c[k]));
+      (c.alert_entities || []).forEach((e) => ids.push(e));
+      const lg = c.lights_entity && this._hass.states[c.lights_entity];
+      if (lg && Array.isArray(lg.attributes.entity_id)) ids.push(...lg.attributes.entity_id);
+      for (let i = 1; i <= 6; i++) this._list(c[`pill_${i}_entity`]).forEach((e) => {
+        ids.push(e);
+        const s = this._hass.states[e];
+        if (e.startsWith("light.") && Array.isArray(s?.attributes.entity_id)) ids.push(...s.attributes.entity_id);
+      });
       return ids;
     }
     _signature() {
       const h = this._hass;
-      return (h.themes?.darkMode ? "d" : "l") + (h.user?.id || "") + this._ids().map((id) => {
+      return (h.themes?.darkMode ? "d" : "l") + (h.user?.id || "") + new Date().getHours() + this._ids().map((id) => {
         const s = h.states[id];
-        return s ? `${s.state}|${s.attributes.hvac_action || ""}|${s.attributes.last_triggered || ""}|${s.attributes.entity_picture || ""}` : "-";
+        if (!s) return "-";
+        const a = s.attributes;
+        const extra = "";
+        return `${s.state}|${a.hvac_action || ""}|${a.last_triggered || ""}|${a.entity_picture || ""}|${extra}`;
       }).join(";");
     }
+    _list(v) { return !v ? [] : Array.isArray(v) ? v : [v]; }
+    _map(s) {
+      return Object.fromEntries(String(s || "").split(",").map((p) => { const i = p.indexOf("="); return i < 0 ? [] : [p.slice(0, i).trim(), p.slice(i + 1).trim()]; }).filter((p) => p.length === 2 && p[0]));
+    }
+    _first(name) { return String(name || "").split(/\s+/)[0]; }
+
 
     _fmt(n, d = 1) {
       if (n == null) return "–";
@@ -249,7 +313,8 @@
       const parts = [];
       const t = num(h, c.temperature_entity), hu = num(h, c.humidity_entity);
       if (t != null) parts.push(`${this._fmt(t)} °C`);
-      if (hu != null) parts.push(`${this._fmt(hu, 0)}%`);
+      if (hu != null && !(c.humidity_tap_action && c.humidity_tap_action.action !== "none")) parts.push(`${this._fmt(hu, 0)}%`);
+      this._hum = hu;
       if (what) parts.push(what);
       return { mode, text: parts.join(" · ") };
     }
@@ -270,13 +335,34 @@
       const act = (key, tap, hold, entity) => { this._acts[key] = { tap, hold, entity }; return `data-k="${key}"`; };
       const title = (txt, extra = "") => (c.show_titles ? `<div class="sect"><span>${esc(txt)}</span>${extra}</div>` : "");
 
+      /* saluto */
+      if (c.show_greeting) {
+        const g = this._greeting();
+        out.push(`<div class="hi" ${act("greeting", c.greeting_tap_action, c.greeting_hold_action)}><h2>${esc(g.title)}</h2>${g.sub ? `<p>${esc(g.sub)}</p>` : ""}</div>`);
+      }
+      /* pillole */
+      const pills = [];
+      for (let i = 1; i <= 6; i++) {
+        const p = this._pill(i);
+        if (p) pills.push(`<div class="pill surf${p.text === "" ? " solo" : ""}${p.alert ? " alert" : ""}" style="--c:${p.color}" ${act("pill" + i, c[`pill_${i}_tap_action`] || { action: "more-info" }, null, p.entity)}><ha-icon icon="${esc(p.icon)}"></ha-icon>${p.text !== "" ? `<span>${esc(p.text)}</span>` : ""}</div>`);
+      }
+      if (pills.length) out.push(`<div class="pills">${pills.join("")}</div>`);
+      /* meteo */
+      /* meteo: una card esterna (di solito la Animated Weather Card) incorporata così com'è;
+         la card decide altezza e angoli e ci appoggia sopra il consiglio del momento */
+      if (c.calendar_card?.type && (!c.calendar_hide_empty || this._calendarHasEvents())) out.push(`<div class="cal surf"><div class="slot" data-slot="calendar"></div></div>`);
+      if (c.weather_card?.type) {
+        const tip = this._tip();
+        out.push(`<div class="wx" style="height:${Number(c.weather_height) || 160}px"><div class="slot" data-slot="weather"></div>${tip ? `<span class="tip"><ha-icon icon="${esc(tip.icon)}"></ha-icon>${esc(tip.text)}</span>` : ""}</div>`);
+      }
+
       /* riquadri */
       const tiles = [];
       if ((c.climate_entities || []).length || c.temperature_entity) {
         const cl = this._climate();
         const col = cl.mode === "heat" ? "var(--gh-heat)" : cl.mode === "cool" ? "var(--gh-cool)" : cl.mode === "dry" ? "var(--gh-blue)" : "var(--gh-mut)";
         tiles.push(`<div class="tile wide surf${cl.mode !== "idle" ? " on" : ""}" data-hv="${cl.mode}" style="--c:${col}" ${act("climate", c.climate_tap_action, c.climate_hold_action, (c.climate_entities || [])[0])}>
-          <div class="ico">${SVG.thermo}</div><div class="t"><div class="n">${esc(c.climate_name || this._t("climate"))}</div><div class="v">${esc(cl.text)}</div></div></div>`);
+          <div class="ico">${SVG.thermo}</div><div class="t"><div class="n">${esc(c.climate_name || this._t("climate"))}</div><div class="v">${esc(cl.text)}</div></div>${this._hum != null && c.humidity_tap_action && c.humidity_tap_action.action !== "none" ? `<div class="hum" ${act("humidity", c.humidity_tap_action, null, c.humidity_entity)}>${SVG.drop}${this._fmt(this._hum, 0)}%</div>` : ""}</div>`);
       }
       if (c.covers_open_entity) {
         const n = num(h, c.covers_open_entity) || 0, sl = num(h, c.covers_slit_entity) || 0;
@@ -359,17 +445,164 @@
           nextExpiry = nextExpiry ? Math.min(nextExpiry, left) : left;
         }
         const col = c[`scene_${i}_color`] || ["var(--gh-sun)", "var(--gh-violet)", "var(--gh-blue)", "var(--gh-ok)"][i - 1];
-        scenes.push(`<div class="sc surf${c[`scene_${i}_highlight`] ? " cur" : ""}${sent}" style="--c:${col};--hold:${HOLD_MS}ms" ${act(key, tap, hold, script)}><span class="fill"></span><ha-icon icon="${esc(icon)}"></ha-icon><span class="lbl">${esc(name)}</span>${ok}</div>`);
+        /* attivo = lanciato dopo l'ultimo cambio dell'entità di riferimento (per esempio la fascia oraria) */
+        const ref = c.scenes_active_since && h.states[c.scenes_active_since];
+        const on = !!(lt && ref?.last_changed && new Date(lt) > new Date(ref.last_changed)) ? " on" : "";
+        scenes.push(`<div class="sc surf${on}${c[`scene_${i}_highlight`] ? " cur" : ""}${sent}" style="--c:${col};--hold:${HOLD_MS}ms" ${act(key, tap, hold, script)}><span class="fill"></span><ha-icon icon="${esc(icon)}"></ha-icon><span class="lbl">${esc(name)}</span>${ok}</div>`);
       }
       if (scenes.length) {
         const all = c.all_tap_action && c.all_tap_action.action !== "none" ? `<span class="all" ${act("all", c.all_tap_action, null)}>${esc(this._t("all"))} ›</span>` : "";
         out.push(title(c.title_scenes || this._t("scenes"), all) + `<div class="scen" style="grid-template-columns:repeat(${scenes.length},1fr)">${scenes.join("")}</div>`);
       }
 
-      this.shadowRoot.innerHTML = `<style>${CSS}</style><div class="wrap" data-style="${esc(c.style)}" data-scheme="${scheme}">${out.join("")}</div>`;
+      const mt = Number(c.margin_top) || 0;
+      this.shadowRoot.innerHTML = `<style>${CSS}</style><div class="wrap" data-style="${esc(c.style)}" data-scheme="${scheme}"${c.compact ? " data-compact" : ""}${mt ? ` style="margin-top:${mt}px"` : ""}>${out.join("")}</div>`;
       this._wire();
+      this._attachWeather();
       clearTimeout(this._timer);
       if (nextExpiry) this._timer = setTimeout(() => { this._sig = ""; this._render(); }, nextExpiry + 50);
+    }
+
+    /* ---------- saluto, pillole, meteo ---------- */
+    _greeting() {
+      const h = this._hass, c = this._config;
+      const ge = c.greeting_entity && h.states[c.greeting_entity];
+      let sal = ge ? this._map(c.greeting_map)[ge.state] : "";
+      if (!sal) {
+        const hr = new Date().getHours();
+        sal = this._t(hr >= 22 || hr < 6 ? "gNight" : hr < 13 ? "gMorning" : hr < 18 ? "gAfternoon" : "gEvening");
+      }
+      const viewer = this._viewer();
+      const name = this._first(viewer ? h.states[viewer].attributes.friendly_name : h.user?.name);
+      const parts = [];
+      const on = (s) => s && ["on", "open", "unlocked", "problem"].includes(s.state);
+      const ppl = [c.person_1, c.person_2].filter((p) => p && h.states[p]);
+      const empty = ppl.length > 0 && ppl.every((p) => h.states[p].state !== "home");
+      /* 1. manca la corrente: rete giù oppure UPS non più «online» */
+      const fail = c.power_fail_entity && h.states[c.power_fail_entity];
+      const ups = c.ups_status_entity && h.states[c.ups_status_entity];
+      const upsBad = ups && !["unknown", "unavailable"].includes(ups.state) && String(ups.state).toLowerCase() !== String(c.ups_ok_state || "Online").toLowerCase();
+      if (on(fail) || upsBad) {
+        const run = num(h, c.ups_runtime_entity);
+        parts.push(this._t("powerOut") + (run != null ? `, ${this._t("runtime")} ${Math.round(run)} min` : ""));
+      }
+      /* 2. casa vuota con l'antifurto spento */
+      const al = c.alarm_entity && h.states[c.alarm_entity];
+      if (empty && al && al.state === "disarmed") parts.push(this._t("emptyDisarmed"));
+      /* 3. porte e box aperti, con il testo scelto */
+      const names = this._map(c.alert_names);
+      (c.alert_entities || []).forEach((e) => {
+        const s = h.states[e];
+        if (on(s)) parts.push(names[e] || s.attributes.friendly_name || e);
+      });
+      /* 4. luci accese a casa vuota */
+      if (empty && c.lights_entity && h.states[c.lights_entity]) {
+        const g = h.states[c.lights_entity], members = Array.isArray(g.attributes.entity_id) ? g.attributes.entity_id : [c.lights_entity];
+        const n = members.filter((e) => h.states[e]?.state === "on").length;
+        if (n > 0) parts.push(n === 1 ? this._t("oneLightEmpty") : this._t("lightsEmpty").replace("{n}", n));
+      }
+      /* 5. antifurto, sempre */
+      if (al && !(empty && al.state === "disarmed")) {
+        const lab = this._map(c.alarm_names)[al.state] || (h.formatEntityState ? h.formatEntityState(al) : al.state);
+        parts.push(`${c.alarm_prefix ?? this._t("alarm")} ${lab}`.trim());
+      }
+      /* 6. l'altra persona, solo se richiesto */
+      if (c.subtitle_people) ppl.filter((p) => p !== viewer).forEach((p) => {
+        const s = h.states[p];
+        parts.push(`${this._first(s.attributes.friendly_name)} ${this._t(s.state === "home" ? "athome" : "away")}`);
+      });
+      return { title: name ? `${sal}, ${name}` : sal, sub: parts.slice(0, 3).join(" · ") };
+    }
+
+    _pill(i) {
+      const h = this._hass, c = this._config;
+      const ents = this._list(c[`pill_${i}_entity`]).filter((e) => h.states[e]);
+      if (!ents.length) return null;
+      const s0 = h.states[ents[0]], dom = ents[0].split(".")[0], dc = s0.attributes.device_class;
+      const grey = "var(--gh-mut)";
+      let icon = c[`pill_${i}_icon`], text = c[`pill_${i}_text`] ?? null, color = grey, alert = false;
+      if (dom === "light") {
+        const members = ents.length === 1 && Array.isArray(s0.attributes.entity_id) ? s0.attributes.entity_id : ents;
+        const n = members.filter((e) => h.states[e]?.state === "on").length;
+        text = text ?? String(n); color = n > 0 ? "var(--gh-sun)" : grey; icon = icon || "mdi:lightbulb-group";
+      } else if (dom === "alarm_control_panel") {
+        const st = s0.state;
+        text = text ?? (this._map(c.alarm_names)[st] || (h.formatEntityState ? h.formatEntityState(s0) : st));
+        color = st === "disarmed" ? grey : ["armed_home", "armed_stay"].includes(st) ? "var(--gh-blue)" : ["arming", "pending", "disarming"].includes(st) ? "var(--gh-orange)" : "#e53935";
+        alert = st === "triggered";
+        icon = icon || (st === "disarmed" ? "mdi:shield-off-outline" : alert ? "mdi:shield-alert" : "mdi:shield-lock-outline");
+      } else if (["binary_sensor", "cover", "lock"].includes(dom)) {
+        const open = ents.some((e) => ["on", "open", "opening", "unlocked", "unlocking"].includes(h.states[e].state));
+        color = open ? "#e53935" : "var(--gh-ok)";
+        const kind = dom === "lock" ? "lock" : dc === "garage_door" || dc === "garage" ? "garage" : dc === "window" ? "window" : "door";
+        icon = icon || { lock: open ? "mdi:lock-open-variant" : "mdi:lock", garage: open ? "mdi:garage-open-variant" : "mdi:garage-variant", window: open ? "mdi:window-open-variant" : "mdi:window-closed-variant", door: open ? "mdi:door-open" : "mdi:door-closed" }[kind];
+        text = text ?? "";
+      } else {
+        const v = num(h, ents[0]);
+        text = text ?? (v != null ? this._fmt(v, 0) : (h.formatEntityState ? h.formatEntityState(s0) : s0.state));
+        color = v != null && v > 0 ? (c[`pill_${i}_color`] || "var(--gh-blue)") : grey;
+        icon = icon || s0.attributes.icon || "mdi:information-outline";
+      }
+      return { entity: ents[0], icon, text, color, alert };
+    }
+
+    /* il prossimo impegno lo dice già l'entità calendario (attributi start_time/message);
+       si contano solo i calendari visibili a chi guarda (condizioni «user») */
+    _calendarHasEvents() {
+      const h = this._hass, cc = this._config.calendar_card;
+      const days = Number(cc.days_to_show) || 7, limit = Date.now() + days * 86400000;
+      return (cc.entities || []).some((e) => {
+        const id = typeof e === "string" ? e : e.entity;
+        const vis = (typeof e === "object" && e.visibility) || [];
+        if (vis.some((v) => v.condition === "user" && !(v.users || []).includes(h.user?.id))) return false;
+        const s = h.states[id];
+        if (!s) return false;
+        if (s.state === "on") return true;
+        const t = s.attributes.start_time ? new Date(String(s.attributes.start_time).replace(" ", "T")).getTime() : NaN;
+        return !isNaN(t) && t <= limit;
+      });
+    }
+
+    _tip() {
+      const h = this._hass, c = this._config;
+      for (const j of [1, 2]) {
+        const t = c[`tip_${j}_entity`] && h.states[c[`tip_${j}_entity`]];
+        if (t && t.state === "on") return { text: c[`tip_${j}_text`] || t.attributes.friendly_name, icon: c[`tip_${j}_icon`] || t.attributes.icon || "mdi:lightbulb-on-outline" };
+      }
+      return null;
+    }
+
+    /* le card incorporate (meteo, calendario) vengono create una volta sola
+       e rimesse al loro posto a ogni ridisegno, così non ripartono da zero */
+    _attachWeather() {
+      this._embed("weather", this._config.weather_card);
+      this._embed("calendar", this._config.calendar_card);
+    }
+    async _embed(name, cfg) {
+      this._emb = this._emb || {};
+      const slot = this.shadowRoot.querySelector(`[data-slot="${name}"]`);
+      if (!slot || !cfg?.type) return;
+      const key = JSON.stringify(cfg);
+      let e = this._emb[name];
+      if (!e || e.key !== key) {
+        e = this._emb[name] = { key, el: null };
+        let el;
+        try {
+          const helpers = window.loadCardHelpers ? await window.loadCardHelpers() : null;
+          el = helpers ? helpers.createCardElement(cfg) : document.createElement(String(cfg.type).replace(/^custom:/, ""));
+          if (!helpers && el.setConfig) el.setConfig(cfg);
+        } catch (err) {
+          el = document.createElement("div");
+          el.textContent = String(err?.message || err);
+        }
+        if (this._emb[name] !== e) return;
+        e.el = el;
+      }
+      if (!e.el) return;
+      const now = this.shadowRoot.querySelector(`[data-slot="${name}"]`);
+      if (!now) return;
+      if (this._hass) e.el.hass = this._hass;
+      if (e.el.parentElement !== now) now.appendChild(e.el);
     }
 
     _fire(key, kind) {
@@ -390,6 +623,7 @@
         let timer = null, held = false, moved = false, start = null;
         const cancel = () => { clearTimeout(timer); timer = null; el.classList.remove("press", "holding"); };
         el.addEventListener("pointerdown", (e) => {
+          if (e.target.closest?.("[data-k]") !== el) return;
           held = false; moved = false; start = [e.clientX, e.clientY];
           const a = this._acts[key];
           const long = a?.hold && a.hold.action !== "none";
@@ -411,6 +645,8 @@
     }
 
     /* ---------- editor ---------- */
+    static getConfigElement() { return document.createElement(TAG + "-editor"); }
+
     static getConfigForm() {
       const scene = (i) => ({
         type: "expandable", name: "", title: `Scena ${i} / Scene ${i}`, schema: [
@@ -418,6 +654,7 @@
           { name: `scene_${i}_name`, selector: { text: {} } },
           { name: `scene_${i}_name_entity`, selector: { entity: {} } },
           { name: `scene_${i}_icon`, selector: { icon: {} } },
+          { name: `scene_${i}_color`, selector: { text: {} } },
           { name: `scene_${i}_icon_map`, selector: { text: {} } },
           { name: `scene_${i}_only_home`, selector: { boolean: {} } },
           { name: `scene_${i}_highlight`, selector: { boolean: {} } },
@@ -432,11 +669,45 @@
             { value: "theme", label: "Tema / Theme" },
           ] } } },
           { name: "show_titles", selector: { boolean: {} } },
+          { name: "compact", selector: { boolean: {} } },
+          { name: "margin_top", selector: { number: { min: -80, max: 40, step: 2, unit_of_measurement: "px", mode: "box" } } },
+          { type: "expandable", name: "", title: "Saluto / Greeting", schema: [
+            { name: "show_greeting", selector: { boolean: {} } },
+            { name: "greeting_entity", selector: { entity: {} } },
+            { name: "greeting_map", selector: { text: {} } },
+            { name: "alarm_entity", selector: { entity: { domain: "alarm_control_panel" } } },
+            { name: "alarm_names", selector: { text: {} } },
+            { name: "alert_entities", selector: { entity: { multiple: true } } },
+            { name: "alert_names", selector: { text: {} } },
+            { name: "lights_entity", selector: { entity: { domain: "light" } } },
+            { name: "power_fail_entity", selector: { entity: { domain: "binary_sensor" } } },
+            { name: "ups_status_entity", selector: { entity: { domain: "sensor" } } },
+            { name: "ups_runtime_entity", selector: { entity: { domain: "sensor" } } },
+            { name: "subtitle_people", selector: { boolean: {} } },
+            { name: "greeting_tap_action", selector: { ui_action: {} } },
+            { name: "greeting_hold_action", selector: { ui_action: {} } },
+          ] },
+          { type: "expandable", name: "", title: "Distintivi / Pills", schema: [1, 2, 3, 4, 5, 6].flatMap((i) => [
+            { name: `pill_${i}_entity`, selector: { entity: { multiple: true } } },
+            { name: `pill_${i}_icon`, selector: { icon: {} } },
+            { name: `pill_${i}_tap_action`, selector: { ui_action: {} } },
+          ]) },
+          { type: "expandable", name: "", title: "Meteo / Weather", schema: [
+            { name: "weather_card", selector: { object: {} } },
+            { name: "calendar_card", selector: { object: {} } },
+            { name: "calendar_hide_empty", selector: { boolean: {} } },
+            { name: "weather_height", selector: { number: { min: 110, max: 260, step: 5, unit_of_measurement: "px", mode: "box" } } },
+            { name: "tip_1_entity", selector: { entity: { domain: ["binary_sensor", "input_boolean"] } } },
+            { name: "tip_1_text", selector: { text: {} } },
+            { name: "tip_2_entity", selector: { entity: { domain: ["binary_sensor", "input_boolean"] } } },
+            { name: "tip_2_text", selector: { text: {} } },
+          ] },
           { type: "expandable", name: "", title: "Clima / Climate", schema: [
             { name: "climate_entities", selector: { entity: { domain: "climate", multiple: true } } },
             { name: "temperature_entity", selector: { entity: { domain: "sensor" } } },
             { name: "humidity_entity", selector: { entity: { domain: "sensor" } } },
             { name: "room_names", selector: { text: {} } },
+            { name: "humidity_tap_action", selector: { ui_action: {} } },
             { name: "climate_tap_action", selector: { ui_action: {} } },
           ] },
           { type: "expandable", name: "", title: "Tapparelle / Covers", schema: [
@@ -460,6 +731,7 @@
             { name: "box_tap_action", selector: { ui_action: {} } },
           ] },
           { type: "expandable", name: "", title: "Scenari / Scenes", schema: [
+            { name: "scenes_active_since", selector: { entity: {} } },
             { name: "scene_trigger", selector: { select: { options: [{ value: "hold", label: "Tieni premuto / Hold" }, { value: "tap", label: "Tocco / Tap" }] } } },
             { name: "all_tap_action", selector: { ui_action: {} } },
             scene(1), scene(2), scene(3), scene(4),
@@ -478,17 +750,154 @@
   const LABELS = {
     style: "Stile / Style", show_titles: "Titoli delle sezioni / Section titles",
     climate_entities: "Termostati e condizionatori / Climate entities", temperature_entity: "Temperatura media / Indoor temperature",
-    humidity_entity: "Umidità media / Indoor humidity", room_names: "Nomi corti: Stanza lunga=Corta, … / Short room names",climate_tap_action: "Tocco / Tap",
+    humidity_entity: "Umidità media / Indoor humidity", humidity_tap_action: "Pillola umidità: tocco / Humidity chip tap", room_names: "Nomi corti: Stanza lunga=Corta, … / Short room names",climate_tap_action: "Tocco / Tap",
     covers_open_entity: "Sensore «quante aperte» / Open count sensor", covers_slit_entity: "Sensore «a fessura» / Ajar count sensor", covers_tap_action: "Tocco / Tap",
     solar_power_entity: "Potenza / Power", solar_energy_entity: "Energia di oggi / Energy today", solar_min_power: "Acceso sopra / On above", solar_tap_action: "Tocco / Tap",
     person_1: "Persona 1 / Person 1", person_2: "Persona 2 / Person 2", person_1_tap_action: "Tocco persona 1", person_2_tap_action: "Tocco persona 2",
     enter_tap_action: "Tasto Entra-Esci / Enter-Leave", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
+    scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
     scene_trigger: "Avvio / Run with", all_tap_action: "«Tutti» / «All»",
+    show_greeting: "Mostra il saluto / Show greeting", greeting_entity: "Fascia oraria / Time-of-day entity",
+    greeting_map: "Saluto per stato: mattino=Buongiorno, … / Greeting per state", alarm_entity: "Antifurto / Alarm",
+    alarm_names: "Nomi antifurto: armed_home=No Box, … / Alarm state names", alert_entities: "Avvisi nel sottotitolo / Alerts in the subtitle", alert_names: "Testi avvisi: entità=Testo, … / Alert texts", lights_entity: "Gruppo luci (accese a casa vuota) / Lights group", power_fail_entity: "Guasto rete / Power failure", ups_status_entity: "Stato UPS / UPS status", ups_runtime_entity: "Autonomia UPS / UPS runtime", subtitle_people: "Mostra l'altra persona / Show the other person",
+    greeting_tap_action: "Tocco / Tap", greeting_hold_action: "Pressione lunga / Hold",
+    weather_card: "Card meteo (configurazione) / Weather card config", calendar_card: "Card calendario, sopra il meteo / Calendar card, above the weather", weather_height: "Altezza / Height",
+    tip_1_entity: "Consiglio 1 (quando è acceso) / Tip 1", tip_1_text: "Testo consiglio 1", tip_2_entity: "Consiglio 2 / Tip 2", tip_2_text: "Testo consiglio 2",
   };
+  for (let i = 1; i <= 6; i++) Object.assign(LABELS, { [`pill_${i}_entity`]: `Distintivo ${i} / Pill ${i}`, [`pill_${i}_icon`]: "Icona / Icon", [`pill_${i}_tap_action`]: "Tocco / Tap" });
   for (let i = 1; i <= 4; i++) Object.assign(LABELS, {
     [`scene_${i}_script`]: "Script", [`scene_${i}_name`]: "Nome / Name", [`scene_${i}_name_entity`]: "Nome da entità / Name from entity",
-    [`scene_${i}_icon`]: "Icona / Icon", [`scene_${i}_icon_map`]: "Icona per stato: stato=mdi:icona, … / Icon per state",[`scene_${i}_only_home`]: "Solo a chi è a casa / Only when at home", [`scene_${i}_highlight`]: "In evidenza / Highlight",
+    [`scene_${i}_icon`]: "Icona / Icon", [`scene_${i}_color`]: "Colore (#e53935, red…) / Color", [`scene_${i}_icon_map`]: "Icona per stato: stato=mdi:icona, … / Icon per state",[`scene_${i}_only_home`]: "Solo a chi è a casa / Only when at home", [`scene_${i}_highlight`]: "In evidenza / Highlight",
   });
+
+
+  /* ---------- editor a schede ----------
+     «Generale» è il modulo di sempre (ha-form); «Meteo» e «Calendario» caricano l'editor visuale
+     della card incorporata con hui-card-element-editor, come fanno le pile di HA. Se quel pezzo
+     interno non c'è (o cambia), si torna al riquadro YAML. */
+  class GlassHomeCardEditor extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: "open" }); this._tab = "main"; }
+    setConfig(config) {
+      this._config = { ...config };
+      if (this._built !== this._tab) { this._render(); return; }
+      this.shadowRoot.querySelectorAll("ha-form").forEach((f) => { f.data = this._config; });
+      this.shadowRoot.querySelectorAll("hui-card-element-editor").forEach((ed) => {
+        const want = this._config[ed.dataset.key];
+        if (want && JSON.stringify(want) !== JSON.stringify(ed.value)) ed.value = want;
+      });
+    }
+    set hass(h) {
+      const first = !this._hass;
+      this._hass = h;
+      if (first && this._config) { this._built = null; this._render(); return; }
+      this.shadowRoot.querySelectorAll("ha-form, hui-card-element-editor").forEach((el) => { el.hass = h; });
+    }
+    set lovelace(l) { this._lovelace = l; }
+    _changed(cfg) {
+      this._config = cfg;
+      this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: cfg }, bubbles: true, composed: true }));
+    }
+    _subEditorReady() {
+      if (customElements.get("hui-card-element-editor")) return Promise.resolve(true);
+      if (!this._ready) {
+        const tryLoad = (async () => {
+          const helpers = await window.loadCardHelpers();
+          const stack = await helpers.createCardElement({ type: "vertical-stack", cards: [] });
+          await stack.constructor.getConfigElement();
+          await customElements.whenDefined("hui-card-element-editor");
+          return true;
+        })().catch(() => false);
+        this._ready = Promise.race([tryLoad, new Promise((r) => setTimeout(() => r(false), 4000))])
+          .then((ok) => ok && !!customElements.get("hui-card-element-editor"));
+      }
+      return this._ready;
+    }
+    _form(schema) {
+      const f = document.createElement("ha-form");
+      f.hass = this._hass;
+      f.data = this._config;
+      f.schema = schema;
+      f.computeLabel = (x) => LABELS[x.name] || x.name;
+      f.addEventListener("value-changed", (e) => { e.stopPropagation(); this._changed({ ...this._config, ...e.detail.value }); });
+      return f;
+    }
+    _sub(key, defType) {
+      const box = document.createElement("div");
+      const cfg = this._config[key] || { type: defType };
+      this._yaml = this._yaml || {};
+      const bar = document.createElement("div");
+      bar.className = "bar";
+      const btn = document.createElement("button");
+      btn.className = "mode";
+      bar.appendChild(btn);
+      box.appendChild(bar);
+      const slot = document.createElement("div");
+      box.appendChild(slot);
+      const showYaml = (label) => {
+        slot.replaceChildren(this._form([{ name: key, selector: { object: {} } }]));
+        btn.textContent = label;
+      };
+      btn.addEventListener("click", () => { this._yaml[key] = !this._yaml[key]; this._built = null; this._render(); });
+      showYaml(this._yaml[key] ? "Editor visuale" : "Caricamento editor…");
+      if (this._yaml[key] || !this._hass) { if (!this._hass) btn.textContent = "Editor visuale"; return box; }
+      this._subEditorReady().then((ok) => {
+        if (!box.isConnected || this._yaml[key]) return;
+        if (!ok) { btn.textContent = "Editor visuale non disponibile"; btn.disabled = true; return; }
+        const ed = document.createElement("hui-card-element-editor");
+        ed.dataset.key = key;
+        ed.hass = this._hass;
+        if (this._lovelace) ed.lovelace = this._lovelace;
+        ed.value = cfg;
+        ed.addEventListener("config-changed", (e) => {
+          e.stopPropagation();
+          if (e.detail?.config) this._changed({ ...this._config, [key]: e.detail.config });
+        });
+        slot.replaceChildren(ed);
+        btn.textContent = "Modifica in YAML";
+        setTimeout(() => {
+          if (!ed.isConnected) return;
+          if (!(ed.shadowRoot && ed.shadowRoot.childElementCount) || ed.offsetHeight < 8) { this._yaml[key] = true; this._built = null; this._render(); }
+        }, 4000);
+      });
+      return box;
+    }
+    async _render() {
+      if (!this._config) return;
+      const root = this.shadowRoot;
+      this._built = this._tab;
+      const all = GlassHomeCard.getConfigForm().schema;
+      const strip = (list) => list.filter((x) => !["weather_card", "calendar_card"].includes(x.name)).map((x) => (x.schema ? { ...x, schema: strip(x.schema) } : x));
+      const tabs = [["main", "Generale"], ["weather", "Meteo"], ["calendar", "Calendario"]];
+      root.innerHTML = `<style>
+        .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+        .tabs button{font:500 14px var(--ha-font-family-body,system-ui);padding:7px 14px;border-radius:18px;border:1px solid var(--divider-color);background:none;color:var(--primary-text-color);cursor:pointer}
+        .tabs button.on{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}
+        .note{font-size:12.5px;color:var(--secondary-text-color);margin:0 0 10px}
+        .bar{display:flex;justify-content:flex-end;margin:10px 0 6px}
+        .bar .mode:disabled{color:var(--secondary-text-color);cursor:default}
+        .bar .mode{font:500 13px var(--ha-font-family-body,system-ui);padding:5px 12px;border-radius:14px;border:1px solid var(--divider-color);background:none;color:var(--primary-color);cursor:pointer}
+      </style><div class="tabs">${tabs.map(([k, l]) => `<button data-t="${k}" class="${this._tab === k ? "on" : ""}">${l}</button>`).join("")}</div><div class="body"></div>`;
+      root.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { this._tab = b.dataset.t; this._render(); }));
+      const body = root.querySelector(".body");
+      const tab = this._tab;
+      if (tab === "main") {
+        body.appendChild(this._form(strip(all)));
+      } else if (tab === "weather") {
+        body.appendChild(this._form([
+          { name: "weather_height", selector: { number: { min: 110, max: 260, step: 5, unit_of_measurement: "px", mode: "box" } } },
+          { name: "tip_1_entity", selector: { entity: { domain: ["binary_sensor", "input_boolean"] } } },
+          { name: "tip_1_text", selector: { text: {} } },
+          { name: "tip_2_entity", selector: { entity: { domain: ["binary_sensor", "input_boolean"] } } },
+          { name: "tip_2_text", selector: { text: {} } },
+        ]));
+        body.appendChild(this._sub("weather_card", "custom:animated-weather-card"));
+      } else {
+        body.appendChild(this._form([{ name: "calendar_hide_empty", selector: { boolean: {} } }]));
+        body.appendChild(this._sub("calendar_card", "custom:calendar-card-pro"));
+      }
+    }
+  }
+  if (!customElements.get(TAG + "-editor")) customElements.define(TAG + "-editor", GlassHomeCardEditor);
 
   if (!customElements.get(TAG)) customElements.define(TAG, GlassHomeCard);
   window.customCards = window.customCards || [];
