@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.5.3";
+  const VERSION = "0.5.4";
   const HOLD_MS = 600;
 
   const STR = {
@@ -239,24 +239,35 @@
       if (sig !== this._sig) { this._sig = sig; this._render(); }
     }
 
+    /* «niente scorrimento»: la pagina non viene bloccata (così il trascina-giù dell'app ricarica ancora);
+       la card misura quanto la pagina sfora lo schermo e se lo toglie con un margine negativo in fondo */
     connectedCallback() { this._lock(); }
     disconnectedCallback() { this._unlock(); }
     _lock() {
-      const narrow = window.matchMedia("(max-width: 767px)").matches;
-      if (!this._config?.lock_scroll || !narrow || this._locked) return;
-      const el = document.documentElement;
-      this._prev = { o: el.style.overflow, b: el.style.overscrollBehavior };
-      el.style.overflow = "hidden";
-      el.style.overscrollBehavior = "none";
-      window.scrollTo(0, 0);
+      if (!this._config?.lock_scroll || this._locked) return;
       this._locked = true;
+      this._onResize = () => this._fit();
+      window.addEventListener("resize", this._onResize);
+      this._fitTimer = setInterval(() => this._fit(), 2000);
+      requestAnimationFrame(() => this._fit());
     }
     _unlock() {
       if (!this._locked) return;
-      const el = document.documentElement;
-      el.style.overflow = this._prev?.o || "";
-      el.style.overscrollBehavior = this._prev?.b || "";
       this._locked = false;
+      window.removeEventListener("resize", this._onResize);
+      clearInterval(this._fitTimer);
+      const w = this.shadowRoot?.querySelector(".wrap");
+      if (w) w.style.marginBottom = "";
+      this._fitPx = 0;
+    }
+    _fit() {
+      const w = this.shadowRoot?.querySelector(".wrap");
+      if (!w || !this._locked) return;
+      if (!window.matchMedia("(max-width: 767px)").matches) { w.style.marginBottom = ""; this._fitPx = 0; return; }
+      const doc = document.scrollingElement || document.documentElement;
+      const over = doc.scrollHeight - window.innerHeight + (this._fitPx || 0);
+      const px = Math.max(0, Math.ceil(over));
+      if (px !== this._fitPx) { this._fitPx = px; w.style.marginBottom = px ? `-${px}px` : ""; }
     }
 
     getCardSize() { return 6; }
@@ -480,6 +491,7 @@
       this.shadowRoot.innerHTML = `<style>${CSS}</style><div class="wrap" data-style="${esc(c.style)}" data-scheme="${scheme}"${c.compact ? " data-compact" : ""}${mt ? ` style="margin-top:${mt}px"` : ""}>${out.join("")}</div>`;
       this._wire();
       this._attachWeather();
+      if (this._locked && this._fitPx) { const w = this.shadowRoot.querySelector(".wrap"); if (w) w.style.marginBottom = `-${this._fitPx}px`; }
       clearTimeout(this._timer);
       if (nextExpiry) this._timer = setTimeout(() => { this._sig = ""; this._render(); }, nextExpiry + 50);
     }
@@ -777,7 +789,7 @@
     solar_power_entity: "Potenza / Power", solar_energy_entity: "Energia di oggi / Energy today", solar_min_power: "Acceso sopra / On above", solar_tap_action: "Tocco / Tap",
     person_1: "Persona 1 / Person 1", person_2: "Persona 2 / Person 2", person_1_tap_action: "Tocco persona 1", person_2_tap_action: "Tocco persona 2",
     enter_tap_action: "Tasto Entra-Esci / Enter-Leave", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
-    scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", lock_scroll: "Blocca lo scorrimento sul telefono / Lock scrolling on phones", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
+    scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", lock_scroll: "Niente scorrimento sul telefono (la pagina si adatta allo schermo) / No scrolling on phones", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
     scene_trigger: "Avvio / Run with", all_tap_action: "«Tutti» / «All»",
     show_greeting: "Mostra il saluto / Show greeting", greeting_entity: "Fascia oraria / Time-of-day entity",
     greeting_map: "Saluto per stato: mattino=Buongiorno, … / Greeting per state", alarm_entity: "Antifurto / Alarm",
