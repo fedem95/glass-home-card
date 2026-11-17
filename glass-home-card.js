@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.5.4";
+  const VERSION = "0.5.6";
   const HOLD_MS = 600;
 
   const STR = {
@@ -82,6 +82,11 @@
 .wrap[data-compact] .hi h2{font-size:27px}
 .wrap[data-compact] .pill{height:32px}
 .wrap[data-compact] .pill.solo{width:36px}
+.wrap[data-bigee] .ee{padding:10px 10px 10px 12px}
+.wrap[data-bigee] .eeb{gap:8px}
+.wrap[data-bigee] .eeb button{justify-content:center;height:52px;border-radius:16px;font-size:15.5px;gap:8px;padding:0 16px}
+.wrap[data-bigee] .eeb button svg{width:22px;height:22px}
+.wrap[data-bigee] .av{width:40px;height:40px}
 .wrap{display:flex;flex-direction:column;gap:var(--gh-gap);color:var(--gh-fg)}
 .sect{font-size:13px;font-weight:600;color:var(--gh-mut);margin:2px 2px -6px;display:flex;justify-content:space-between;align-items:center}
 .sect .all{font-weight:500;cursor:pointer;padding:4px 0 4px 12px;-webkit-tap-highlight-color:transparent}
@@ -138,6 +143,9 @@
 /* persone */
 .ee{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-radius:var(--gh-r)}
 .ppl{display:flex;gap:6px}
+.ppl .av{position:relative}
+.ppl .av.front{z-index:2}
+.ppl .av.behind{margin-left:-18px;z-index:1}
 .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:14px;color:#fff;cursor:pointer;background:linear-gradient(135deg,#6b8cff,#8b5cf6) center/cover;box-shadow:0 0 0 2.5px rgba(255,255,255,.7),0 0 0 4.5px var(--ring);-webkit-tap-highlight-color:transparent}
 .wrap[data-scheme="dark"] .av{box-shadow:0 0 0 2.5px rgba(0,0,0,.5),0 0 0 4.5px var(--ring)}
 .av.p2{background-image:linear-gradient(135deg,#f59e9e,#e06c9f)}
@@ -419,11 +427,13 @@
       if (ppl.length) {
         const viewer = this._viewer();
         const atHome = viewer ? h.states[viewer].state === "home" : false;
-        const avs = ppl.map((p, i) => {
+        /* chi guarda davanti, gli altri dietro e un po' sovrapposti */
+        const order = ppl.map((p, i) => [p, i]).sort((a, b) => (b[0] === viewer) - (a[0] === viewer));
+        const avs = order.map(([p, i], k) => {
           const s = h.states[p], pic = s.attributes.entity_picture;
           const ring = s.state === "home" ? "var(--gh-ok)" : "rgba(127,127,140,.55)";
           const ini = (s.attributes.friendly_name || p).split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-          return `<div class="av p${i + 1}" style="--ring:${ring};${pic ? `background-image:url('${esc(pic)}')` : ""}" title="${esc(s.attributes.friendly_name)}" ${act("person" + (i + 1), c[`person_${i + 1}_tap_action`] || { action: "more-info" }, null, p)}>${pic ? "" : esc(ini)}</div>`;
+          return `<div class="av p${i + 1} ${k === 0 ? "front" : "behind"}" style="--ring:${ring};${pic ? `background-image:url('${esc(pic)}')` : ""}" title="${esc(s.attributes.friendly_name)}" ${act("person" + (i + 1), c[`person_${i + 1}_tap_action`] || { action: "more-info" }, null, p)}>${pic ? "" : esc(ini)}</div>`;
         }).join("");
         const b1 = atHome
           ? `<button style="--c:var(--gh-orange)" ${act("enter", c.enter_tap_action, null)}>${SVG.leave}${esc(this._t("leave"))}</button>`
@@ -488,7 +498,7 @@
       }
 
       const mt = Number(c.margin_top) || 0;
-      this.shadowRoot.innerHTML = `<style>${CSS}</style><div class="wrap" data-style="${esc(c.style)}" data-scheme="${scheme}"${c.compact ? " data-compact" : ""}${mt ? ` style="margin-top:${mt}px"` : ""}>${out.join("")}</div>`;
+      this.shadowRoot.innerHTML = `<style>${CSS}</style><div class="wrap" data-style="${esc(c.style)}" data-scheme="${scheme}"${c.compact ? " data-compact" : ""}${c.big_enter_buttons ? " data-bigee" : ""}${mt ? ` style="margin-top:${mt}px"` : ""}>${out.join("")}</div>`;
       this._wire();
       this._attachWeather();
       if (this._locked && this._fitPx) { const w = this.shadowRoot.querySelector(".wrap"); if (w) w.style.marginBottom = `-${this._fitPx}px`; }
@@ -760,6 +770,7 @@
             { name: "person_1_tap_action", selector: { ui_action: {} } },
             { name: "person_2", selector: { entity: { domain: "person" } } },
             { name: "person_2_tap_action", selector: { ui_action: {} } },
+            { name: "big_enter_buttons", selector: { boolean: {} } },
             { name: "enter_tap_action", selector: { ui_action: {} } },
             { name: "show_box", selector: { boolean: {} } },
             { name: "box_tap_action", selector: { ui_action: {} } },
@@ -788,7 +799,7 @@
     covers_open_entity: "Sensore «quante aperte» / Open count sensor", covers_slit_entity: "Sensore «a fessura» / Ajar count sensor", covers_tap_action: "Tocco / Tap",
     solar_power_entity: "Potenza / Power", solar_energy_entity: "Energia di oggi / Energy today", solar_min_power: "Acceso sopra / On above", solar_tap_action: "Tocco / Tap",
     person_1: "Persona 1 / Person 1", person_2: "Persona 2 / Person 2", person_1_tap_action: "Tocco persona 1", person_2_tap_action: "Tocco persona 2",
-    enter_tap_action: "Tasto Entra-Esci / Enter-Leave", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
+    big_enter_buttons: "Tasti Entra/Esci grandi (per la macchina) / Big Enter/Leave buttons", enter_tap_action: "Tasto Entra-Esci / Enter-Leave", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
     scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", lock_scroll: "Niente scorrimento sul telefono (la pagina si adatta allo schermo) / No scrolling on phones", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
     scene_trigger: "Avvio / Run with", all_tap_action: "«Tutti» / «All»",
     show_greeting: "Mostra il saluto / Show greeting", greeting_entity: "Fascia oraria / Time-of-day entity",

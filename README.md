@@ -18,7 +18,7 @@ Everything is set in the visual editor, with tabs for the general options and fo
 Copy `glass-home-card.js` to `/config/www/glass-home-card/` and add it as a dashboard resource:
 
 ```
-/local/glass-home-card/glass-home-card.js?v=0.5.4
+/local/glass-home-card/glass-home-card.js?v=0.5.6
 ```
 
 Type `module`. Bump `?v=` after every update. Optional background: copy `backgrounds/aurora.svg` next to it and set it as the view background (`/local/glass-home-card/aurora.svg`).
