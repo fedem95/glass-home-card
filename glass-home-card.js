@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.5.6";
+  const VERSION = "0.5.8";
   const HOLD_MS = 600;
 
   const STR = {
@@ -87,6 +87,7 @@
 .wrap[data-bigee] .eeb button{justify-content:center;height:52px;border-radius:16px;font-size:15.5px;gap:8px;padding:0 16px}
 .wrap[data-bigee] .eeb button svg{width:22px;height:22px}
 .wrap[data-bigee] .av{width:40px;height:40px}
+.dbg{font:11px ui-monospace,Menlo,monospace;color:var(--gh-mut);background:rgba(127,127,140,.12);border-radius:8px;padding:6px 8px;word-break:break-all}
 .wrap{display:flex;flex-direction:column;gap:var(--gh-gap);color:var(--gh-fg)}
 .sect{font-size:13px;font-weight:600;color:var(--gh-mut);margin:2px 2px -6px;display:flex;justify-content:space-between;align-items:center}
 .sect .all{font-weight:500;cursor:pointer;padding:4px 0 4px 12px;-webkit-tap-highlight-color:transparent}
@@ -236,7 +237,7 @@
       if (!config) throw new Error("Invalid configuration");
       this._config = { ...DEFAULTS, ...config };
       this._sig = "";
-      if (this.isConnected) { if (this._config.lock_scroll) this._lock(); else this._unlock(); }
+      if (this.isConnected) { if (this._config.lock_scroll || this._config.debug_fit) this._lock(); else this._unlock(); }
       if (this._hass) this._render();
     }
 
@@ -252,7 +253,7 @@
     connectedCallback() { this._lock(); }
     disconnectedCallback() { this._unlock(); }
     _lock() {
-      if (!this._config?.lock_scroll || this._locked) return;
+      if (!(this._config?.lock_scroll || this._config?.debug_fit) || this._locked) return;
       this._locked = true;
       this._onResize = () => this._fit();
       window.addEventListener("resize", this._onResize);
@@ -264,18 +265,52 @@
       this._locked = false;
       window.removeEventListener("resize", this._onResize);
       clearInterval(this._fitTimer);
-      const w = this.shadowRoot?.querySelector(".wrap");
-      if (w) w.style.marginBottom = "";
-      this._fitPx = 0;
+      this._setFit(0);
     }
     _fit() {
       const w = this.shadowRoot?.querySelector(".wrap");
       if (!w || !this._locked) return;
-      if (!window.matchMedia("(max-width: 767px)").matches) { w.style.marginBottom = ""; this._fitPx = 0; return; }
+      if (!this._config.lock_scroll || !window.matchMedia("(max-width: 767px)").matches) {
+        this._setFit(0);
+        if (this._config.debug_fit) this._debug(document.scrollingElement || document.documentElement, 0);
+        return;
+      }
       const doc = document.scrollingElement || document.documentElement;
+      /* quanto sfora la pagina con l'accorciamento attuale, più l'accorciamento stesso = sforamento vero */
+      const natural = w.offsetHeight;
       const over = doc.scrollHeight - window.innerHeight + (this._fitPx || 0);
-      const px = Math.max(0, Math.ceil(over));
-      if (px !== this._fitPx) { this._fitPx = px; w.style.marginBottom = px ? `-${px}px` : ""; }
+      const px = Math.max(0, Math.min(Math.ceil(over), Math.max(0, natural - 200)));
+      if (px !== this._fitPx) this._setFit(px);
+      if (this._config.debug_fit) this._debug(doc, over);
+    }
+    /* la card dichiara un'altezza più bassa del contenuto: il contenuto si vede tutto,
+       ma la griglia della vista usa l'altezza dichiarata e la pagina si accorcia davvero */
+    _setFit(px) {
+      const w = this.shadowRoot?.querySelector(".wrap");
+      this._fitPx = px;
+      if (!px || !w) { this.style.height = ""; this.style.overflow = ""; return; }
+      this.style.display = "block";
+      this.style.overflow = "visible";
+      this.style.height = `${w.offsetHeight - px}px`;
+    }
+
+    /* diagnosi: chi scorre davvero e con quali misure */
+    _debug(doc, over) {
+      let box = this.shadowRoot.querySelector(".dbg");
+      if (!box) { box = document.createElement("div"); box.className = "dbg"; this.shadowRoot.querySelector(".wrap")?.appendChild(box); }
+      if (!box.isConnected) return;
+      const scrollers = [];
+      let n = this;
+      for (let i = 0; i < 40 && n; i++) {
+        n = n.parentNode || n.host;
+        if (n instanceof Element) {
+          const cs = getComputedStyle(n);
+          if (/(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 1)
+            scrollers.push(`${n.tagName.toLowerCase()}${n.id ? "#" + n.id : ""} ${n.scrollHeight}/${n.clientHeight} y${Math.round(n.scrollTop)}`);
+        }
+      }
+      const r = this.getBoundingClientRect(), vv = window.visualViewport;
+      box.textContent = `v${VERSION} doc ${doc.scrollHeight}/${window.innerHeight} vv ${vv ? Math.round(vv.height) : "-"} y${Math.round(window.scrollY)} · fit ${this._fitPx || 0} over ${Math.round(over)} · card ${Math.round(r.top)}→${Math.round(r.bottom)} · scorrono: ${scrollers.join(" | ") || "nessuno"}`;
     }
 
     getCardSize() { return 6; }
@@ -501,7 +536,7 @@
       this.shadowRoot.innerHTML = `<style>${CSS}</style><div class="wrap" data-style="${esc(c.style)}" data-scheme="${scheme}"${c.compact ? " data-compact" : ""}${c.big_enter_buttons ? " data-bigee" : ""}${mt ? ` style="margin-top:${mt}px"` : ""}>${out.join("")}</div>`;
       this._wire();
       this._attachWeather();
-      if (this._locked && this._fitPx) { const w = this.shadowRoot.querySelector(".wrap"); if (w) w.style.marginBottom = `-${this._fitPx}px`; }
+      if (this._locked && this._fitPx) this._setFit(this._fitPx);
       clearTimeout(this._timer);
       if (nextExpiry) this._timer = setTimeout(() => { this._sig = ""; this._render(); }, nextExpiry + 50);
     }
@@ -714,6 +749,7 @@
           { name: "show_titles", selector: { boolean: {} } },
           { name: "compact", selector: { boolean: {} } },
           { name: "lock_scroll", selector: { boolean: {} } },
+          { name: "debug_fit", selector: { boolean: {} } },
           { name: "margin_top", selector: { number: { min: -80, max: 40, step: 2, unit_of_measurement: "px", mode: "box" } } },
           { type: "expandable", name: "", title: "Saluto / Greeting", schema: [
             { name: "show_greeting", selector: { boolean: {} } },
@@ -800,7 +836,7 @@
     solar_power_entity: "Potenza / Power", solar_energy_entity: "Energia di oggi / Energy today", solar_min_power: "Acceso sopra / On above", solar_tap_action: "Tocco / Tap",
     person_1: "Persona 1 / Person 1", person_2: "Persona 2 / Person 2", person_1_tap_action: "Tocco persona 1", person_2_tap_action: "Tocco persona 2",
     big_enter_buttons: "Tasti Entra/Esci grandi (per la macchina) / Big Enter/Leave buttons", enter_tap_action: "Tasto Entra-Esci / Enter-Leave", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
-    scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", lock_scroll: "Niente scorrimento sul telefono (la pagina si adatta allo schermo) / No scrolling on phones", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
+    scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", debug_fit: "Diagnosi adattamento (riga di misure) / Fit diagnostics", lock_scroll: "Niente scorrimento sul telefono (la pagina si adatta allo schermo) / No scrolling on phones", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
     scene_trigger: "Avvio / Run with", all_tap_action: "«Tutti» / «All»",
     show_greeting: "Mostra il saluto / Show greeting", greeting_entity: "Fascia oraria / Time-of-day entity",
     greeting_map: "Saluto per stato: mattino=Buongiorno, … / Greeting per state", alarm_entity: "Antifurto / Alarm",
