@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.5.9";
+  const VERSION = "0.5.10";
   const HOLD_MS = 600;
 
   const STR = {
@@ -208,6 +208,12 @@
 /* meteo */
 .wx{position:relative;border-radius:28px;overflow:hidden;isolation:isolate;transform:translateZ(0)}
 .wx .slot{position:absolute;inset:0}
+.wx.surf{padding:0;transition:background .45s,border-color .45s}
+.wx.surf:has(.slot.in){background:none;border-color:transparent;box-shadow:none}
+.wx .slot,.cal .slot{opacity:0;transition:opacity .45s ease}
+.wx .slot.in,.cal .slot.in{opacity:1}
+.wx .slot:not(.in)~.tip{opacity:0}
+.wx .tip{transition:opacity .45s ease}
 .wx .slot>*{display:block;height:100%;--ha-card-border-radius:28px}
 .cal{border-radius:var(--gh-r);overflow:hidden;padding:4px 2px}
 .cal .slot>*{display:block;--ha-card-background:transparent;--card-background-color:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--ha-card-border-color:transparent}
@@ -239,6 +245,8 @@
       if (!config) throw new Error("Invalid configuration");
       this._config = { ...DEFAULTS, ...config };
       this._sig = "";
+      this._prep("weather", this._config.weather_card);
+      this._prep("calendar", this._config.calendar_card);
       if (this.isConnected) { if (this._config.lock_scroll || this._config.debug_fit) this._lock(); else this._unlock(); }
       if (this._hass) this._render();
     }
@@ -427,10 +435,10 @@
       /* meteo */
       /* meteo: una card esterna (di solito la Animated Weather Card) incorporata così com'è;
          la card decide altezza e angoli e ci appoggia sopra il consiglio del momento */
-      if (c.calendar_card?.type && (!c.calendar_hide_empty || this._calendarHasEvents())) out.push(`<div class="cal surf"><div class="slot" data-slot="calendar"></div></div>`);
+      if (c.calendar_card?.type && (!c.calendar_hide_empty || this._calendarHasEvents())) out.push(`<div class="cal surf"><div class="slot${this._emb?.calendar?.shown ? " in" : ""}" data-slot="calendar"></div></div>`);
       if (c.weather_card?.type) {
         const tip = this._tip();
-        out.push(`<div class="wx" style="height:${Number(c.weather_height) || 160}px"><div class="slot" data-slot="weather"></div>${tip ? `<span class="tip"><ha-icon icon="${esc(tip.icon)}"></ha-icon>${esc(tip.text)}</span>` : ""}</div>`);
+        out.push(`<div class="wx surf" style="height:${Number(c.weather_height) || 160}px"><div class="slot${this._emb?.weather?.shown ? " in" : ""}" data-slot="weather"></div>${tip ? `<span class="tip"><ha-icon icon="${esc(tip.icon)}"></ha-icon>${esc(tip.text)}</span>` : ""}</div>`);
       }
 
       /* riquadri */
@@ -658,14 +666,16 @@
       this._embed("weather", this._config.weather_card);
       this._embed("calendar", this._config.calendar_card);
     }
-    async _embed(name, cfg) {
+    /* crea la card incorporata (una volta per configurazione); se il suo file non e ancora
+       caricato HA da un segnaposto che chiede di essere ricreato (ll-rebuild) */
+    _prep(name, cfg) {
       this._emb = this._emb || {};
-      const slot = this.shadowRoot.querySelector(`[data-slot="${name}"]`);
-      if (!slot || !cfg?.type) return;
+      if (!cfg?.type) { delete this._emb[name]; return null; }
       const key = JSON.stringify(cfg);
       let e = this._emb[name];
-      if (!e || e.key !== key) {
-        e = this._emb[name] = { key, el: null };
+      if (e && e.key === key) return e;
+      e = this._emb[name] = { key, el: null, shown: false };
+      (async () => {
         let el;
         try {
           const helpers = window.loadCardHelpers ? await window.loadCardHelpers() : null;
@@ -676,13 +686,39 @@
           el.textContent = String(err?.message || err);
         }
         if (this._emb[name] !== e) return;
+        el.addEventListener("ll-rebuild", (ev) => {
+          ev.stopPropagation();
+          if (this._emb[name] !== e) return;
+          delete this._emb[name];
+          this._prep(name, cfg);
+        }, { once: true });
         e.el = el;
-      }
-      if (!e.el) return;
+        if (this._hass) el.hass = this._hass;
+        this._embed(name, cfg);
+      })();
+      return e;
+    }
+    _embed(name, cfg) {
+      const e = this._prep(name, cfg);
+      if (!e || !e.el || !this.shadowRoot) return;
       const now = this.shadowRoot.querySelector(`[data-slot="${name}"]`);
       if (!now) return;
       if (this._hass) e.el.hass = this._hass;
-      if (e.el.parentElement !== now) now.appendChild(e.el);
+      if (e.el.parentElement !== now) { now.textContent = ""; now.appendChild(e.el); }
+      if (e.shown) { now.classList.add("in"); return; }
+      /* dissolvenza quando la card ha disegnato qualcosa (o al massimo dopo 1,5 s) */
+      const t0 = performance.now();
+      const check = () => {
+        if (this._emb[name] !== e || e.shown) return;
+        const sr = e.el.shadowRoot;
+        const drawn = e.el.offsetHeight > 0 && (!sr || sr.textContent.trim() || sr.querySelector("canvas, svg, img"));
+        if (drawn || performance.now() - t0 > 1500) {
+          e.shown = true;
+          const slot = this.shadowRoot.querySelector(`[data-slot="${name}"]`);
+          if (slot) slot.classList.add("in");
+        } else setTimeout(check, 60);
+      };
+      setTimeout(check, 30);
     }
 
     _fire(key, kind) {
