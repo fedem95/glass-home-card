@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.5.8";
+  const VERSION = "0.5.9";
   const HOLD_MS = 600;
 
   const STR = {
@@ -71,6 +71,8 @@
   --gh-heat:#d9772f; --gh-cool:#2f72d9; --gh-sun:#c99a10; --gh-ok:#3f9b3a; --gh-blue:#2f72d9; --gh-violet:#7a5ae0; --gh-orange:#d9772f;
   --gh-r:20px; --gh-gap:14px;
   font-family:var(--ha-font-family-body, -apple-system, system-ui, sans-serif);}
+.wrap[data-style^="glass"][data-scheme="light"],.wrap[data-style="apple"][data-scheme="light"]{--gh-fg:#16181d;--gh-mut:rgba(22,24,29,.58)}
+.wrap[data-style^="glass"][data-scheme="dark"],.wrap[data-style="apple"][data-scheme="dark"]{--gh-fg:#f5f5f7;--gh-mut:rgba(245,245,247,.62)}
 .wrap[data-scheme="dark"]{--gh-heat:#f3a76a;--gh-cool:#7fb2ff;--gh-sun:#f7d36b;--gh-ok:#8fd18a;--gh-blue:#7fb2ff;--gh-violet:#b49cff;--gh-orange:#f3a76a}
 .wrap[data-compact]{--gh-gap:10px}
 .wrap[data-compact] .tile{height:58px}
