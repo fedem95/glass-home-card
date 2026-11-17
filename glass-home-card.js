@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.5.2";
+  const VERSION = "0.5.3";
   const HOLD_MS = 600;
 
   const STR = {
@@ -228,6 +228,7 @@
       if (!config) throw new Error("Invalid configuration");
       this._config = { ...DEFAULTS, ...config };
       this._sig = "";
+      if (this.isConnected) { if (this._config.lock_scroll) this._lock(); else this._unlock(); }
       if (this._hass) this._render();
     }
 
@@ -236,6 +237,26 @@
       Object.values(this._emb || {}).forEach((e) => { if (e.el) e.el.hass = hass; });
       const sig = this._signature();
       if (sig !== this._sig) { this._sig = sig; this._render(); }
+    }
+
+    connectedCallback() { this._lock(); }
+    disconnectedCallback() { this._unlock(); }
+    _lock() {
+      const narrow = window.matchMedia("(max-width: 767px)").matches;
+      if (!this._config?.lock_scroll || !narrow || this._locked) return;
+      const el = document.documentElement;
+      this._prev = { o: el.style.overflow, b: el.style.overscrollBehavior };
+      el.style.overflow = "hidden";
+      el.style.overscrollBehavior = "none";
+      window.scrollTo(0, 0);
+      this._locked = true;
+    }
+    _unlock() {
+      if (!this._locked) return;
+      const el = document.documentElement;
+      el.style.overflow = this._prev?.o || "";
+      el.style.overscrollBehavior = this._prev?.b || "";
+      this._locked = false;
     }
 
     getCardSize() { return 6; }
@@ -670,6 +691,7 @@
           ] } } },
           { name: "show_titles", selector: { boolean: {} } },
           { name: "compact", selector: { boolean: {} } },
+          { name: "lock_scroll", selector: { boolean: {} } },
           { name: "margin_top", selector: { number: { min: -80, max: 40, step: 2, unit_of_measurement: "px", mode: "box" } } },
           { type: "expandable", name: "", title: "Saluto / Greeting", schema: [
             { name: "show_greeting", selector: { boolean: {} } },
@@ -755,7 +777,7 @@
     solar_power_entity: "Potenza / Power", solar_energy_entity: "Energia di oggi / Energy today", solar_min_power: "Acceso sopra / On above", solar_tap_action: "Tocco / Tap",
     person_1: "Persona 1 / Person 1", person_2: "Persona 2 / Person 2", person_1_tap_action: "Tocco persona 1", person_2_tap_action: "Tocco persona 2",
     enter_tap_action: "Tasto Entra-Esci / Enter-Leave", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
-    scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
+    scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", lock_scroll: "Blocca lo scorrimento sul telefono / Lock scrolling on phones", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
     scene_trigger: "Avvio / Run with", all_tap_action: "«Tutti» / «All»",
     show_greeting: "Mostra il saluto / Show greeting", greeting_entity: "Fascia oraria / Time-of-day entity",
     greeting_map: "Saluto per stato: mattino=Buongiorno, … / Greeting per state", alarm_entity: "Antifurto / Alarm",
