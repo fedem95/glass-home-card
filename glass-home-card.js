@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.6.2";
+  const VERSION = "0.6.3";
   const HOLD_MS = 600;
 
   const STR = {
@@ -49,6 +49,7 @@
     activity_entities: [],
     activity_idle_state: "nessuna",
     activity_owner_entity: "",
+    activity_owner_for: [],
     activity_tap_action: { action: "none" },
     scene_trigger: "hold",
     show_greeting: true,
@@ -509,9 +510,11 @@
         const idle = this._list(c.activity_idle_state);
         const running = this._list(c.activity_entities).filter((e) => { const s = h.states[e]; return s && !idle.includes(s.state) && !["unavailable", "unknown", ""].includes(s.state); });
         const owners = new Set();
+        const ownerFor = this._list(c.activity_owner_for);
         running.forEach((e) => {
           const p = ppl.find((pp) => e.includes(pp.split(".")[1]));
           if (p) { owners.add(p); return; }
+          if (ownerFor.length && !ownerFor.includes(e)) return;
           const txt = String(h.states[c.activity_owner_entity]?.state || "").toLowerCase();
           const q = ppl.find((pp) => { const n = String(h.states[pp].attributes.friendly_name || "").toLowerCase(); return n && txt.startsWith(n); });
           if (q) owners.add(q);
@@ -932,6 +935,7 @@
             { name: "activity_entities", selector: { entity: { multiple: true } } },
             { name: "activity_idle_state", selector: { text: {} } },
             { name: "activity_owner_entity", selector: { entity: {} } },
+            { name: "activity_owner_for", selector: { entity: { multiple: true } } },
             { name: "activity_tap_action", selector: { ui_action: {} } },
           ] },
           { type: "expandable", name: "", title: "Scenari / Scenes", schema: [
@@ -958,7 +962,7 @@
     covers_open_entity: "Sensore «quante aperte» / Open count sensor", covers_slit_entity: "Sensore «a fessura» / Ajar count sensor", covers_tap_action: "Tocco / Tap",
     solar_power_entity: "Potenza / Power", solar_energy_entity: "Energia di oggi / Energy today", solar_min_power: "Acceso sopra / On above", solar_tap_action: "Tocco / Tap",
     person_1: "Persona 1 / Person 1", person_2: "Persona 2 / Person 2", person_1_tap_action: "Tocco persona 1", person_2_tap_action: "Tocco persona 2",
-    big_enter_buttons: "Tasti Entra/Esci grandi (per la macchina) / Big Enter/Leave buttons", enter_tap_action: "Tasto Entra-Esci / Enter-Leave", activity_entities: "Giri in corso (icona animata) / Running trips", activity_idle_state: "Stato a riposo / Idle state", activity_owner_entity: "Testo che comincia con chi ha lanciato il giro / Text starting with who started it", activity_tap_action: "Tocco sull icona del giro / Trip icon tap", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
+    big_enter_buttons: "Tasti Entra/Esci grandi (per la macchina) / Big Enter/Leave buttons", enter_tap_action: "Tasto Entra-Esci / Enter-Leave", activity_entities: "Giri in corso (icona animata) / Running trips", activity_idle_state: "Stato a riposo / Idle state", activity_owner_entity: "Testo che comincia con chi ha lanciato il giro / Text starting with who started it", activity_owner_for: "Giri a cui si riferisce quel testo / Trips that text describes", activity_tap_action: "Tocco sull icona del giro / Trip icon tap", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
     scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", debug_fit: "Diagnosi adattamento (riga di misure) / Fit diagnostics", lock_scroll: "Niente scorrimento sul telefono (la pagina si adatta allo schermo) / No scrolling on phones", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
     scene_trigger: "Avvio / Run with", all_tap_action: "«Tutti» / «All»",
     show_greeting: "Mostra il saluto / Show greeting", greeting_entity: "Fascia oraria / Time-of-day entity",
