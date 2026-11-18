@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.6.3";
+  const VERSION = "0.7.0";
   const HOLD_MS = 600;
 
   const STR = {
@@ -214,6 +214,8 @@
 .hi{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 .hi h2{margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.12;text-wrap:balance}
 .hi p{margin:4px 0 0;color:var(--gh-mut);font-size:14.5px;line-height:1.35}
+.hi p.alert{color:#e53935;font-weight:600}
+.wrap[data-scheme="dark"] .hi p.alert{color:#ff7a75}
 /* pillole */
 .pills{display:flex;gap:8px;flex-wrap:wrap}
 .pill{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px 0 9px;border-radius:17px;font-size:13.5px;font-weight:500;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;box-sizing:border-box}
@@ -456,7 +458,7 @@
       /* saluto */
       if (c.show_greeting) {
         const g = this._greeting();
-        out.push(`<div class="hi" ${act("greeting", c.greeting_tap_action, c.greeting_hold_action)}><h2>${esc(g.title)}</h2>${g.sub ? `<p>${esc(g.sub)}</p>` : ""}</div>`);
+        out.push(`<div class="hi" ${act("greeting", c.greeting_tap_action, c.greeting_hold_action)}><h2>${esc(g.title)}</h2>${g.sub ? `<p${g.alert ? ' class="alert"' : ""}>${esc(g.sub)}</p>` : ""}</div>`);
       }
       /* pillole */
       const pills = [];
@@ -650,7 +652,9 @@
         const s = h.states[p];
         parts.push(`${this._first(s.attributes.friendly_name)} ${this._t(s.state === "home" ? "athome" : "away")}`);
       });
-      return { title: name ? `${sal}, ${name}` : sal, sub: parts.slice(0, 3).join(" · ") };
+      const alertSub = parts.length > 0 && (c.alert_entities || []).some((e) => on(h.states[e]));
+      const sub = parts.slice(0, 3).join(" · ") || c.subtitle_ok || "";
+      return { title: c.title || (name ? `${sal}, ${name}` : sal), sub, alert: alertSub && !!c.title };
     }
 
     _pill(i) {
@@ -672,10 +676,11 @@
         icon = icon || (st === "disarmed" ? "mdi:shield-off-outline" : alert ? "mdi:shield-alert" : "mdi:shield-lock-outline");
       } else if (["binary_sensor", "cover", "lock"].includes(dom)) {
         const open = ents.some((e) => ["on", "open", "opening", "unlocked", "unlocking"].includes(h.states[e].state));
+        if (open && c[`pill_${i}_icon_on`]) icon = c[`pill_${i}_icon_on`];
         color = open ? "#e53935" : "var(--gh-ok)";
         const kind = dom === "lock" ? "lock" : dc === "garage_door" || dc === "garage" ? "garage" : dc === "window" ? "window" : "door";
         icon = icon || { lock: open ? "mdi:lock-open-variant" : "mdi:lock", garage: open ? "mdi:garage-open-variant" : "mdi:garage-variant", window: open ? "mdi:window-open-variant" : "mdi:window-closed-variant", door: open ? "mdi:door-open" : "mdi:door-closed" }[kind];
-        text = text ?? "";
+        text = text ?? (ents.length > 1 ? String(ents.filter((e) => ["on", "open", "opening", "unlocked", "unlocking"].includes(h.states[e].state)).length) : "");
       } else {
         const v = num(h, ents[0]);
         text = text ?? (v != null ? this._fmt(v, 0) : (h.formatEntityState ? h.formatEntityState(s0) : s0.state));
@@ -875,6 +880,8 @@
           { name: "margin_top", selector: { number: { min: -80, max: 40, step: 2, unit_of_measurement: "px", mode: "box" } } },
           { type: "expandable", name: "", title: "Saluto / Greeting", schema: [
             { name: "show_greeting", selector: { boolean: {} } },
+            { name: "title", selector: { text: {} } },
+            { name: "subtitle_ok", selector: { text: {} } },
             { name: "greeting_entity", selector: { entity: {} } },
             { name: "greeting_map", selector: { text: {} } },
             { name: "alarm_entity", selector: { entity: { domain: "alarm_control_panel" } } },
@@ -965,7 +972,7 @@
     big_enter_buttons: "Tasti Entra/Esci grandi (per la macchina) / Big Enter/Leave buttons", enter_tap_action: "Tasto Entra-Esci / Enter-Leave", activity_entities: "Giri in corso (icona animata) / Running trips", activity_idle_state: "Stato a riposo / Idle state", activity_owner_entity: "Testo che comincia con chi ha lanciato il giro / Text starting with who started it", activity_owner_for: "Giri a cui si riferisce quel testo / Trips that text describes", activity_tap_action: "Tocco sull icona del giro / Trip icon tap", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
     scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", debug_fit: "Diagnosi adattamento (riga di misure) / Fit diagnostics", lock_scroll: "Niente scorrimento sul telefono (la pagina si adatta allo schermo) / No scrolling on phones", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
     scene_trigger: "Avvio / Run with", all_tap_action: "«Tutti» / «All»",
-    show_greeting: "Mostra il saluto / Show greeting", greeting_entity: "Fascia oraria / Time-of-day entity",
+    show_greeting: "Mostra il saluto / Show greeting", title: "Titolo fisso al posto del saluto (altre viste) / Fixed title instead of the greeting", subtitle_ok: "Sottotitolo quando non c'è niente da dire / Subtitle when all is fine", greeting_entity: "Fascia oraria / Time-of-day entity",
     greeting_map: "Saluto per stato: mattino=Buongiorno, … / Greeting per state", alarm_entity: "Antifurto / Alarm",
     alarm_names: "Nomi antifurto: armed_home=No Box, … / Alarm state names", alert_entities: "Avvisi nel sottotitolo / Alerts in the subtitle", alert_names: "Testi avvisi: entità=Testo, … / Alert texts", lights_entity: "Gruppo luci (accese a casa vuota) / Lights group", power_fail_entity: "Guasto rete / Power failure", ups_status_entity: "Stato UPS / UPS status", ups_runtime_entity: "Autonomia UPS / UPS runtime", subtitle_people: "Mostra l'altra persona / Show the other person",
     greeting_tap_action: "Tocco / Tap", greeting_hold_action: "Pressione lunga / Hold",
