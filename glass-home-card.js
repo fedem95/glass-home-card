@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.5.10";
+  const VERSION = "0.6.0";
   const HOLD_MS = 600;
 
   const STR = {
@@ -19,7 +19,7 @@
       heats: "riscalda", cools: "raffresca", dries: "deumidifica", idle: "fermo",
       and: "e", rooms: "stanze", open: "aperte", openOne: "aperta", allClosed: "Tutte chiuse", slit: "a fessura",
       stopped: "Fermo", today: "oggi",
-      enter: "Entra", leave: "Esci", enterBox: "Entra box", leaveBox: "Esci box",
+      enter: "Entra", leave: "Esci", enterBox: "Entra box", leaveBox: "Esci box", running: "Giro in corso",
       gMorning: "Buongiorno", gAfternoon: "Buon pomeriggio", gEvening: "Buonasera", gNight: "Buonanotte",
       alarm: "Antifurto", athome: "a casa", away: "fuori",
       powerOut: "Manca la corrente", runtime: "autonomia", emptyDisarmed: "Nessuno in casa e antifurto spento", oneLightEmpty: "1 luce accesa a casa vuota", lightsEmpty: "{n} luci accese a casa vuota",
@@ -30,7 +30,7 @@
       heats: "heating", cools: "cooling", dries: "drying", idle: "idle",
       and: "and", rooms: "rooms", open: "open", openOne: "open", allClosed: "All closed", slit: "ajar",
       stopped: "Idle", today: "today",
-      enter: "Enter", leave: "Leave", enterBox: "Enter by car", leaveBox: "Leave by car",
+      enter: "Enter", leave: "Leave", enterBox: "Enter by car", leaveBox: "Leave by car", running: "Trip in progress",
       gMorning: "Good morning", gAfternoon: "Good afternoon", gEvening: "Good evening", gNight: "Good night",
       alarm: "Alarm", athome: "at home", away: "away",
       powerOut: "Power is out", runtime: "battery", emptyDisarmed: "Nobody home and the alarm is off", oneLightEmpty: "1 light on in an empty home", lightsEmpty: "{n} lights on in an empty home",
@@ -46,6 +46,10 @@
     enter_tap_action: { action: "none" },
     box_tap_action: { action: "none" },
     show_box: true,
+    activity_entities: [],
+    activity_idle_state: "nessuna",
+    activity_owner_entity: "",
+    activity_tap_action: { action: "none" },
     scene_trigger: "hold",
     show_greeting: true,
     weather_height: 160,
@@ -59,6 +63,7 @@
     shutterClosed: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="1"/><path d="M4 6.5h16M4 10h16M4 13.5h16M4 17h16M2 21h20"/></svg>`,
     enter: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/><path d="M3 12h11M10 8l4 4-4 4"/></svg>`,
     leave: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5"/><path d="M10 12h11M17 8l4 4-4 4"/></svg>`,
+    route: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path class="dash" d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8"/></svg>`,
     garage: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-8h10v8M7 16h10"/></svg>`,
     check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
     drop: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7l5.7 5.7a8 8 0 1 1-11.4 0z"/></svg>`,
@@ -153,6 +158,17 @@
 .wrap[data-scheme="dark"] .av{box-shadow:0 0 0 2.5px rgba(0,0,0,.5),0 0 0 4.5px var(--ring)}
 .av.p2{background-image:linear-gradient(135deg,#f59e9e,#e06c9f)}
 .eeb{display:flex;gap:6px;flex:1;justify-content:flex-end}
+.run{position:relative;flex:none;width:40px;height:40px;border-radius:50%;border:0;padding:0;display:grid;place-items:center;cursor:pointer;color:var(--c);background:color-mix(in srgb,var(--c) 16%,rgba(127,127,140,.12));-webkit-tap-highlight-color:transparent;animation:run-in .4s cubic-bezier(.2,1.4,.4,1) both}
+.run ha-icon{--mdc-icon-size:22px;position:relative;z-index:1}
+.ee .run{margin:0 auto}
+.run+.eeb{flex:none}
+.run .dash{stroke-dasharray:3 3;animation:run-dash .9s linear infinite}
+.run i{position:absolute;inset:0;border-radius:50%;border:2px solid var(--c);opacity:0;animation:run-ring 1.8s ease-out infinite}
+.run.press{transform:scale(.94)}
+@keyframes run-dash{to{stroke-dashoffset:-12}}
+@keyframes run-ring{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.55);opacity:0}}
+@keyframes run-in{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.run .dash,.run i{animation:none}}
 .eeb button{font:600 13.5px inherit;font-family:inherit;height:40px;border-radius:14px;border:0;padding:0 13px;display:flex;align-items:center;gap:6px;cursor:pointer;background:rgba(127,127,140,.14);color:var(--c);transition:transform .12s;-webkit-tap-highlight-color:transparent}
 .eeb button svg{width:18px;height:18px}
 
@@ -338,6 +354,8 @@
       (c.calendar_card?.entities || []).forEach((e) => ids.push(typeof e === "string" ? e : e.entity));
       ["tip_1_entity", "tip_2_entity", "greeting_entity", "alarm_entity", "scenes_active_since", "power_fail_entity", "ups_status_entity", "ups_runtime_entity", "lights_entity"].forEach((k) => c[k] && ids.push(c[k]));
       (c.alert_entities || []).forEach((e) => ids.push(e));
+      this._list(c.activity_entities).forEach((e) => ids.push(e));
+      if (c.activity_owner_entity) ids.push(c.activity_owner_entity);
       const lg = c.lights_entity && this._hass.states[c.lights_entity];
       if (lg && Array.isArray(lg.attributes.entity_id)) ids.push(...lg.attributes.entity_id);
       for (let i = 1; i <= 6; i++) this._list(c[`pill_${i}_entity`]).forEach((e) => {
@@ -472,11 +490,23 @@
       if (ppl.length) {
         const viewer = this._viewer();
         const atHome = viewer ? h.states[viewer].state === "home" : false;
+        /* giro in corso (Entra/Esci, box) e chi l'ha lanciato: dal nome nell'entita (box_fase_federico)
+           o dal testo che comincia col nome (casa_descrizione: «Denise · Rientro a piedi») */
+        const idle = this._list(c.activity_idle_state);
+        const running = this._list(c.activity_entities).filter((e) => { const s = h.states[e]; return s && !idle.includes(s.state) && !["unavailable", "unknown", ""].includes(s.state); });
+        const owners = new Set();
+        running.forEach((e) => {
+          const p = ppl.find((pp) => e.includes(pp.split(".")[1]));
+          if (p) { owners.add(p); return; }
+          const txt = String(h.states[c.activity_owner_entity]?.state || "").toLowerCase();
+          const q = ppl.find((pp) => { const n = String(h.states[pp].attributes.friendly_name || "").toLowerCase(); return n && txt.startsWith(n); });
+          if (q) owners.add(q);
+        });
         /* chi guarda davanti, gli altri dietro e un po' sovrapposti */
         const order = ppl.map((p, i) => [p, i]).sort((a, b) => (b[0] === viewer) - (a[0] === viewer));
         const avs = order.map(([p, i], k) => {
           const s = h.states[p], pic = s.attributes.entity_picture;
-          const ring = s.state === "home" ? "var(--gh-ok)" : "rgba(127,127,140,.55)";
+          const ring = owners.has(p) ? "var(--gh-orange)" : s.state === "home" ? "var(--gh-ok)" : "rgba(127,127,140,.55)";
           const ini = (s.attributes.friendly_name || p).split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
           return `<div class="av p${i + 1} ${k === 0 ? "front" : "behind"}" style="--ring:${ring};${pic ? `background-image:url('${esc(pic)}')` : ""}" title="${esc(s.attributes.friendly_name)}" ${act("person" + (i + 1), c[`person_${i + 1}_tap_action`] || { action: "more-info" }, null, p)}>${pic ? "" : esc(ini)}</div>`;
         }).join("");
@@ -484,7 +514,11 @@
           ? `<button style="--c:var(--gh-orange)" ${act("enter", c.enter_tap_action, null)}>${SVG.leave}${esc(this._t("leave"))}</button>`
           : `<button style="--c:var(--gh-ok)" ${act("enter", c.enter_tap_action, null)}>${SVG.enter}${esc(this._t("enter"))}</button>`;
         const b2 = c.show_box ? `<button style="--c:var(--gh-blue)" ${act("box", c.box_tap_action, null)}>${SVG.garage}${esc(this._t(atHome ? "leaveBox" : "enterBox"))}</button>` : "";
-        out.push(title(c.title_people || this._t("people")) + `<div class="ee surf"><div class="ppl">${avs}</div><div class="eeb">${b1}${b2}</div></div>`);
+        /* icona del giro tra le foto e i tasti: apre il pop-up delle attivita */
+        const run = running.length
+          ? `<button class="run" style="--c:var(--gh-orange)" title="${esc(this._t("running"))}" ${act("activity", c.activity_tap_action, null)}><i></i><ha-icon icon="mdi:history"></ha-icon></button>`
+          : "";
+        out.push(title(c.title_people || this._t("people")) + `<div class="ee surf"><div class="ppl">${avs}</div>${run}<div class="eeb">${b1}${b2}</div></div>`);
       }
 
       /* scenari */
@@ -848,6 +882,10 @@
             { name: "enter_tap_action", selector: { ui_action: {} } },
             { name: "show_box", selector: { boolean: {} } },
             { name: "box_tap_action", selector: { ui_action: {} } },
+            { name: "activity_entities", selector: { entity: { multiple: true } } },
+            { name: "activity_idle_state", selector: { text: {} } },
+            { name: "activity_owner_entity", selector: { entity: {} } },
+            { name: "activity_tap_action", selector: { ui_action: {} } },
           ] },
           { type: "expandable", name: "", title: "Scenari / Scenes", schema: [
             { name: "scenes_active_since", selector: { entity: {} } },
@@ -873,7 +911,7 @@
     covers_open_entity: "Sensore «quante aperte» / Open count sensor", covers_slit_entity: "Sensore «a fessura» / Ajar count sensor", covers_tap_action: "Tocco / Tap",
     solar_power_entity: "Potenza / Power", solar_energy_entity: "Energia di oggi / Energy today", solar_min_power: "Acceso sopra / On above", solar_tap_action: "Tocco / Tap",
     person_1: "Persona 1 / Person 1", person_2: "Persona 2 / Person 2", person_1_tap_action: "Tocco persona 1", person_2_tap_action: "Tocco persona 2",
-    big_enter_buttons: "Tasti Entra/Esci grandi (per la macchina) / Big Enter/Leave buttons", enter_tap_action: "Tasto Entra-Esci / Enter-Leave", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
+    big_enter_buttons: "Tasti Entra/Esci grandi (per la macchina) / Big Enter/Leave buttons", enter_tap_action: "Tasto Entra-Esci / Enter-Leave", activity_entities: "Giri in corso (icona animata) / Running trips", activity_idle_state: "Stato a riposo / Idle state", activity_owner_entity: "Testo che comincia con chi ha lanciato il giro / Text starting with who started it", activity_tap_action: "Tocco sull icona del giro / Trip icon tap", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
     scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", debug_fit: "Diagnosi adattamento (riga di misure) / Fit diagnostics", lock_scroll: "Niente scorrimento sul telefono (la pagina si adatta allo schermo) / No scrolling on phones", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
     scene_trigger: "Avvio / Run with", all_tap_action: "«Tutti» / «All»",
     show_greeting: "Mostra il saluto / Show greeting", greeting_entity: "Fascia oraria / Time-of-day entity",
