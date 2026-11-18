@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.6.0";
+  const VERSION = "0.6.2";
   const HOLD_MS = 600;
 
   const STR = {
@@ -227,6 +227,8 @@
 .wx.surf{padding:0;transition:background .45s,border-color .45s}
 .wx.surf:has(.slot.in){background:none;border-color:transparent;box-shadow:none}
 .wx .slot,.cal .slot{opacity:0;transition:opacity .45s ease}
+.wx .snap{position:absolute;inset:0;pointer-events:none;transition:opacity .45s ease}
+.wx:has(.slot.in) .snap{opacity:0}
 .wx .slot.in,.cal .slot.in{opacity:1}
 .wx .slot:not(.in)~.tip{opacity:0}
 .wx .tip{transition:opacity .45s ease}
@@ -276,7 +278,19 @@
 
     /* «niente scorrimento»: la pagina non viene bloccata (così il trascina-giù dell'app ricarica ancora);
        la card misura quanto la pagina sfora lo schermo e se lo toglie con un margine negativo in fondo */
-    connectedCallback() { this._lock(); }
+    connectedCallback() {
+      this._lock();
+      /* tornando sulla vista la card meteo riparte dal caricamento: fotografia finché non è di nuovo pronta */
+      const e = this._emb?.weather, cfg = this._config?.weather_card;
+      if (e && e.el && e.shown && cfg) {
+        e.shown = false;
+        e.readyAt = 0;
+        const slot = this.shadowRoot && this.shadowRoot.querySelector('[data-slot="weather"]');
+        if (slot) slot.classList.remove("in");
+        this._showSnap(cfg);
+        this._embed("weather", cfg);
+      }
+    }
     disconnectedCallback() { this._unlock(); }
     _lock() {
       if (!(this._config?.lock_scroll || this._config?.debug_fit) || this._locked) return;
@@ -456,7 +470,7 @@
       if (c.calendar_card?.type && (!c.calendar_hide_empty || this._calendarHasEvents())) out.push(`<div class="cal surf"><div class="slot${this._emb?.calendar?.shown ? " in" : ""}" data-slot="calendar"></div></div>`);
       if (c.weather_card?.type) {
         const tip = this._tip();
-        out.push(`<div class="wx surf" style="height:${Number(c.weather_height) || 160}px"><div class="slot${this._emb?.weather?.shown ? " in" : ""}" data-slot="weather"></div>${tip ? `<span class="tip"><ha-icon icon="${esc(tip.icon)}"></ha-icon>${esc(tip.text)}</span>` : ""}</div>`);
+        out.push(`<div class="wx surf" style="height:${Number(c.weather_height) || 160}px"><div class="snap"></div><div class="slot${this._emb?.weather?.shown ? " in" : ""}" data-slot="weather"></div>${tip ? `<span class="tip"><ha-icon icon="${esc(tip.icon)}"></ha-icon>${esc(tip.text)}</span>` : ""}</div>`);
       }
 
       /* riquadri */
@@ -697,6 +711,7 @@
     /* le card incorporate (meteo, calendario) vengono create una volta sola
        e rimesse al loro posto a ogni ridisegno, così non ripartono da zero */
     _attachWeather() {
+      if (this._config.weather_card?.type) this._showSnap(this._config.weather_card);
       this._embed("weather", this._config.weather_card);
       this._embed("calendar", this._config.calendar_card);
     }
@@ -732,6 +747,27 @@
       })();
       return e;
     }
+    _snapKey(cfg) { return "glass-home-card:weather:" + (cfg?.entity || ""); }
+    _saveSnap(e, cfg) {
+      try {
+        if (!e.el || e.el.shadowRoot || !/\S/.test(e.el.innerText || "") || e.el.querySelector(".animated-weather-card.loading")) return;
+        const html = e.el.innerHTML;
+        if (html.length < 400000) localStorage.setItem(this._snapKey(cfg), html);
+        e.savedAt = Date.now();
+      } catch (_e) { /* memoria piena o non disponibile: niente fotografia */ }
+    }
+    _showSnap(cfg) {
+      try {
+        const e = this._emb?.weather;
+        const holder = this.shadowRoot && this.shadowRoot.querySelector(".wx .snap");
+        if (!holder || (e && e.shown)) return;
+        const html = localStorage.getItem(this._snapKey(cfg));
+        if (!html) return;
+        const root = holder.shadowRoot || holder.attachShadow({ mode: "open" });
+        /* le regole scritte per il tag della card valgono per il contenitore della fotografia */
+        root.innerHTML = `<div class="awc-snap-root" style="display:block;height:100%">${html.replace(/(^|[\s,}])animated-weather-card(?=[\s{.:\[>])/g, "$1.awc-snap-root")}</div>`;
+      } catch (_e) { /* niente fotografia */ }
+    }
     _embed(name, cfg) {
       const e = this._prep(name, cfg);
       if (!e || !e.el || !this.shadowRoot) return;
@@ -739,15 +775,26 @@
       if (!now) return;
       if (this._hass) e.el.hass = this._hass;
       if (e.el.parentElement !== now) { now.textContent = ""; now.appendChild(e.el); }
-      if (e.shown) { now.classList.add("in"); return; }
+      if (e.shown) {
+        now.classList.add("in");
+        if (name === "weather" && Date.now() - (e.savedAt || 0) > 600000) this._saveSnap(e, cfg);
+        return;
+      }
       /* dissolvenza quando la card ha disegnato qualcosa (o al massimo dopo 1,5 s) */
       const t0 = performance.now();
       const check = () => {
         if (this._emb[name] !== e || e.shown) return;
         const sr = e.el.shadowRoot;
-        const drawn = e.el.offsetHeight > 0 && (!sr || sr.textContent.trim() || sr.querySelector("canvas, svg, img"));
-        if (drawn || performance.now() - t0 > 1500) {
+        /* la Animated Weather Card passa da uno stato «loading» (blocchi grigi) e poi accende cielo e animazioni */
+        const awc = !sr && e.el.querySelector(".animated-weather-card");
+        let drawn = e.el.offsetHeight > 0 && (sr ? (sr.textContent.trim() || sr.querySelector("canvas, svg, img")) : /\S/.test(e.el.innerText || ""));
+        if (awc) drawn = drawn && !awc.classList.contains("loading");
+        if (drawn && !e.readyAt) e.readyAt = performance.now();
+        if (!drawn) e.readyAt = 0;
+        const settled = drawn && performance.now() - e.readyAt > (awc ? 350 : 0);
+        if (settled || performance.now() - t0 > 4000) {
           e.shown = true;
+          if (name === "weather") setTimeout(() => this._saveSnap(e, cfg), 3000);
           const slot = this.shadowRoot.querySelector(`[data-slot="${name}"]`);
           if (slot) slot.classList.add("in");
         } else setTimeout(check, 60);
