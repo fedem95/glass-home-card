@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.7.0";
+  const VERSION = "0.7.1";
   const HOLD_MS = 600;
 
   const STR = {
@@ -215,6 +215,7 @@
 .hi h2{margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.12;text-wrap:balance}
 .hi p{margin:4px 0 0;color:var(--gh-mut);font-size:14.5px;line-height:1.35}
 .hi p.alert{color:#e53935;font-weight:600}
+.hi p.accent{color:var(--gh-orange);font-weight:600}
 .wrap[data-scheme="dark"] .hi p.alert{color:#ff7a75}
 /* pillole */
 .pills{display:flex;gap:8px;flex-wrap:wrap}
@@ -373,6 +374,7 @@
       (c.alert_entities || []).forEach((e) => ids.push(e));
       this._list(c.activity_entities).forEach((e) => ids.push(e));
       if (c.activity_owner_entity) ids.push(c.activity_owner_entity);
+      ["subtitle_entity", "subtitle_accent_entity"].forEach((k) => c[k] && ids.push(c[k]));
       const lg = c.lights_entity && this._hass.states[c.lights_entity];
       if (lg && Array.isArray(lg.attributes.entity_id)) ids.push(...lg.attributes.entity_id);
       for (let i = 1; i <= 6; i++) this._list(c[`pill_${i}_entity`]).forEach((e) => {
@@ -458,7 +460,7 @@
       /* saluto */
       if (c.show_greeting) {
         const g = this._greeting();
-        out.push(`<div class="hi" ${act("greeting", c.greeting_tap_action, c.greeting_hold_action)}><h2>${esc(g.title)}</h2>${g.sub ? `<p${g.alert ? ' class="alert"' : ""}>${esc(g.sub)}</p>` : ""}</div>`);
+        out.push(`<div class="hi" ${act("greeting", c.greeting_tap_action, c.greeting_hold_action)}><h2>${esc(g.title)}</h2>${g.sub ? `<p${g.alert ? ' class="alert"' : g.accent ? ' class="accent"' : ""}>${esc(g.sub)}</p>` : ""}</div>`);
       }
       /* pillole */
       const pills = [];
@@ -653,8 +655,11 @@
         parts.push(`${this._first(s.attributes.friendly_name)} ${this._t(s.state === "home" ? "athome" : "away")}`);
       });
       const alertSub = parts.length > 0 && (c.alert_entities || []).some((e) => on(h.states[e]));
-      const sub = parts.slice(0, 3).join(" · ") || c.subtitle_ok || "";
-      return { title: c.title || (name ? `${sal}, ${name}` : sal), sub, alert: alertSub && !!c.title };
+      const se = c.subtitle_entity && h.states[c.subtitle_entity];
+      const seText = se && !["unknown", "unavailable", ""].includes(se.state) ? se.state : "";
+      const sub = parts.slice(0, 3).join(" · ") || seText || c.subtitle_ok || "";
+      const accent = !parts.length && !!seText && on(c.subtitle_accent_entity && h.states[c.subtitle_accent_entity]);
+      return { title: c.title || (name ? `${sal}, ${name}` : sal), sub, alert: alertSub && !!c.title, accent };
     }
 
     _pill(i) {
@@ -683,7 +688,8 @@
         text = text ?? (ents.length > 1 ? String(ents.filter((e) => ["on", "open", "opening", "unlocked", "unlocking"].includes(h.states[e].state)).length) : "");
       } else {
         const v = num(h, ents[0]);
-        text = text ?? (v != null ? this._fmt(v, 0) : (h.formatEntityState ? h.formatEntityState(s0) : s0.state));
+        const dec = Number(c[`pill_${i}_decimals`]) || 0, suf = c[`pill_${i}_suffix`] || "";
+        text = text ?? (v != null ? this._fmt(v, dec) + suf : (h.formatEntityState ? h.formatEntityState(s0) : s0.state));
         color = v != null && v > 0 ? (c[`pill_${i}_color`] || "var(--gh-blue)") : grey;
         icon = icon || s0.attributes.icon || "mdi:information-outline";
       }
@@ -882,6 +888,8 @@
             { name: "show_greeting", selector: { boolean: {} } },
             { name: "title", selector: { text: {} } },
             { name: "subtitle_ok", selector: { text: {} } },
+            { name: "subtitle_entity", selector: { entity: {} } },
+            { name: "subtitle_accent_entity", selector: { entity: {} } },
             { name: "greeting_entity", selector: { entity: {} } },
             { name: "greeting_map", selector: { text: {} } },
             { name: "alarm_entity", selector: { entity: { domain: "alarm_control_panel" } } },
@@ -972,7 +980,7 @@
     big_enter_buttons: "Tasti Entra/Esci grandi (per la macchina) / Big Enter/Leave buttons", enter_tap_action: "Tasto Entra-Esci / Enter-Leave", activity_entities: "Giri in corso (icona animata) / Running trips", activity_idle_state: "Stato a riposo / Idle state", activity_owner_entity: "Testo che comincia con chi ha lanciato il giro / Text starting with who started it", activity_owner_for: "Giri a cui si riferisce quel testo / Trips that text describes", activity_tap_action: "Tocco sull icona del giro / Trip icon tap", show_box: "Tasto box / Car button", box_tap_action: "Tasto box: tocco",
     scenes_active_since: "Scenario attivo fino al cambio di / Active until this changes", margin_top: "Margine in alto / Top margin", compact: "Compatta (per stare in uno schermo) / Compact", debug_fit: "Diagnosi adattamento (riga di misure) / Fit diagnostics", lock_scroll: "Niente scorrimento sul telefono (la pagina si adatta allo schermo) / No scrolling on phones", calendar_hide_empty: "Nascondi il calendario se non ci sono impegni / Hide when empty",
     scene_trigger: "Avvio / Run with", all_tap_action: "«Tutti» / «All»",
-    show_greeting: "Mostra il saluto / Show greeting", title: "Titolo fisso al posto del saluto (altre viste) / Fixed title instead of the greeting", subtitle_ok: "Sottotitolo quando non c'è niente da dire / Subtitle when all is fine", greeting_entity: "Fascia oraria / Time-of-day entity",
+    show_greeting: "Mostra il saluto / Show greeting", title: "Titolo fisso al posto del saluto (altre viste) / Fixed title instead of the greeting", subtitle_ok: "Sottotitolo quando non c'è niente da dire / Subtitle when all is fine", subtitle_entity: "Sottotitolo preso da un sensore / Subtitle from a sensor", subtitle_accent_entity: "Sottotitolo in arancio quando è acceso / Orange subtitle while on", greeting_entity: "Fascia oraria / Time-of-day entity",
     greeting_map: "Saluto per stato: mattino=Buongiorno, … / Greeting per state", alarm_entity: "Antifurto / Alarm",
     alarm_names: "Nomi antifurto: armed_home=No Box, … / Alarm state names", alert_entities: "Avvisi nel sottotitolo / Alerts in the subtitle", alert_names: "Testi avvisi: entità=Testo, … / Alert texts", lights_entity: "Gruppo luci (accese a casa vuota) / Lights group", power_fail_entity: "Guasto rete / Power failure", ups_status_entity: "Stato UPS / UPS status", ups_runtime_entity: "Autonomia UPS / UPS runtime", subtitle_people: "Mostra l'altra persona / Show the other person",
     greeting_tap_action: "Tocco / Tap", greeting_hold_action: "Pressione lunga / Hold",
