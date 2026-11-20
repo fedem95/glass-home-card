@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.7.1";
+  const VERSION = "0.7.3";
   const HOLD_MS = 600;
 
   const STR = {
@@ -375,6 +375,7 @@
       this._list(c.activity_entities).forEach((e) => ids.push(e));
       if (c.activity_owner_entity) ids.push(c.activity_owner_entity);
       ["subtitle_entity", "subtitle_accent_entity"].forEach((k) => c[k] && ids.push(c[k]));
+      for (let i = 1; i <= 6; i++) if (c[`pill_${i}_passthrough_entity`]) ids.push(c[`pill_${i}_passthrough_entity`]);
       const lg = c.lights_entity && this._hass.states[c.lights_entity];
       if (lg && Array.isArray(lg.attributes.entity_id)) ids.push(...lg.attributes.entity_id);
       for (let i = 1; i <= 6; i++) this._list(c[`pill_${i}_entity`]).forEach((e) => {
@@ -686,6 +687,19 @@
         const kind = dom === "lock" ? "lock" : dc === "garage_door" || dc === "garage" ? "garage" : dc === "window" ? "window" : "door";
         icon = icon || { lock: open ? "mdi:lock-open-variant" : "mdi:lock", garage: open ? "mdi:garage-open-variant" : "mdi:garage-variant", window: open ? "mdi:window-open-variant" : "mdi:window-closed-variant", door: open ? "mdi:door-open" : "mdi:door-closed" }[kind];
         text = text ?? (ents.length > 1 ? String(ents.filter((e) => ["on", "open", "opening", "unlocked", "unlocking"].includes(h.states[e].state)).length) : "");
+      } else if (["media_player", "switch", "input_boolean", "fan"].includes(dom)) {
+        // acceso/spento: colorata da accesa; per i media player accanto c'è l'app o l'ingresso
+        const isOn = (e) => !["off", "unavailable", "unknown", "standby"].includes(h.states[e].state);
+        const onE = ents.find(isOn);
+        if (onE && c[`pill_${i}_icon_on`]) icon = c[`pill_${i}_icon_on`];
+        color = onE ? (c[`pill_${i}_color`] || "var(--gh-blue)") : grey;
+        const so = onE && h.states[onE];
+        let src = so && dom === "media_player" ? (so.attributes.app_name || so.attributes.source || "") : "";
+        // ingresso che passa da un altro apparecchio (es. TV su «Samsung Soundbar» → la PS5 collegata alla soundbar)
+        const pe = c[`pill_${i}_passthrough_entity`] && h.states[c[`pill_${i}_passthrough_entity`]];
+        if (pe && src && src === c[`pill_${i}_passthrough_source`] && pe.attributes.source) src = pe.attributes.source;
+        text = text ?? (onE ? (c[`pill_${i}_text_on`] ?? src) : "");
+        icon = icon || s0.attributes.icon || (dom === "media_player" ? "mdi:television" : "mdi:power");
       } else {
         const v = num(h, ents[0]);
         const dec = Number(c[`pill_${i}_decimals`]) || 0, suf = c[`pill_${i}_suffix`] || "";
