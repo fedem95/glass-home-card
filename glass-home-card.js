@@ -9,7 +9,7 @@
  */
 (() => {
   const TAG = "glass-home-card";
-  const VERSION = "0.7.3";
+  const VERSION = "0.7.4";
   const HOLD_MS = 600;
 
   const STR = {
@@ -236,9 +236,9 @@
 .wx .slot.in,.cal .slot.in{opacity:1}
 .wx .slot:not(.in)~.tip{opacity:0}
 .wx .tip{transition:opacity .45s ease}
-.wx .slot>*{display:block;height:100%;--ha-card-border-radius:28px}
+.wx .slot>*{display:block;height:100%;--ha-card-border-radius:28px;--ha-card-border-width:0;--ha-card-backdrop-filter:none;--ha-card-box-shadow:none}
 .cal{border-radius:var(--gh-r);overflow:hidden;padding:4px 2px}
-.cal .slot>*{display:block;--ha-card-background:transparent;--card-background-color:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--ha-card-border-color:transparent}
+.cal .slot>*{display:block;--ha-card-background:transparent;--card-background-color:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--ha-card-border-color:transparent;--ha-card-backdrop-filter:none}
 .wx .tip{position:absolute;right:14px;top:14px;z-index:3;color:#fff;font-size:12.5px;text-shadow:0 1px 6px rgba(0,0,0,.25);pointer-events:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px 0 9px;border-radius:14px;background:rgba(255,255,255,.22);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-weight:600;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3);opacity:1}
 .wx .tip ha-icon{--mdc-icon-size:15px}
 @media (prefers-reduced-motion:reduce){.term *,.sol *,.ok,.ok *,.sc.sent{animation:none!important}.ok .dot{transform:none}.ok .dot svg{stroke-dashoffset:0}.ok .ring,.ok i{display:none}}
